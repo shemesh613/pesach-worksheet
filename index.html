@@ -296,22 +296,6 @@
   .leaderboard-box h2 { color: #e9edef; font-size: 20px; margin-bottom: 4px; }
   .leaderboard-box .lb-subtitle { color: #8696a0; font-size: 13px; margin-bottom: 16px; }
 
-  .lb-progress-bar {
-    background: #2a3942; border-radius: 10px; height: 18px;
-    margin: 10px 0 16px; overflow: hidden; position: relative;
-  }
-
-  .lb-progress-fill {
-    background: linear-gradient(90deg, #00a884, #06cf9c);
-    height: 100%; border-radius: 10px; transition: width 0.8s ease-out;
-    position: relative;
-  }
-
-  .lb-progress-text {
-    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
-    font-size: 11px; color: #fff; font-weight: 600;
-  }
-
   .lb-entry {
     display: flex; align-items: center; gap: 10px; padding: 10px 12px;
     background: #182229; border-radius: 12px; margin-bottom: 6px;
@@ -329,18 +313,6 @@
 
   .lb-score-num {
     color: #00a884; font-size: 16px; font-weight: 700; min-width: 50px; text-align: left;
-  }
-
-  .lb-winner-banner {
-    background: linear-gradient(135deg, #ffd700, #ff8c00);
-    color: #1a1a1a; padding: 12px; border-radius: 14px; margin: 12px 0;
-    font-size: 16px; font-weight: 700;
-    animation: winPulse 1s infinite alternate;
-  }
-
-  @keyframes winPulse {
-    from { transform: scale(1); }
-    to { transform: scale(1.03); }
   }
 
   .lb-close-btn {
@@ -475,7 +447,7 @@
   <div class="name-modal-box">
     <div style="font-size:48px; margin-bottom:8px;">&#127838;&#127775;</div>
     <h2>!ברוכים הבאים לשיעור פסח</h2>
-    <p>כיתה ה׳ — דף עבודה אינטראקטיבי<br>ענו על השאלות, צברו נקודות — ומי שמגיע ראשון ל-1000 מנצח!</p>
+    <p>כיתה ה׳ — דף עבודה אינטראקטיבי<br>ענו על השאלות וצברו נקודות!</p>
     <input type="text" id="studentNameInput" placeholder="...הכנס/י את שמך" maxlength="20" autofocus>
     <br>
     <button onclick="enterChat()">&#127808; כניסה לקבוצה</button>
@@ -493,13 +465,7 @@
 <div class="leaderboard-overlay hidden" id="leaderboardOverlay">
   <div class="leaderboard-box">
     <h2>&#127942; טבלת המובילים</h2>
-    <div class="lb-subtitle">ראשון ל-1000 נקודות מנצח!</div>
-    <div class="lb-progress-bar">
-      <div class="lb-progress-fill" id="lbProgressFill" style="width:0%">
-        <span class="lb-progress-text" id="lbProgressText">0/1000</span>
-      </div>
-    </div>
-    <div id="lbWinnerBanner"></div>
+    <div class="lb-subtitle">מי צבר הכי הרבה נקודות?</div>
     <div id="lbEntries"></div>
     <button class="lb-close-btn" onclick="closeLB()">&#10006; סגור</button>
   </div>
@@ -1046,9 +1012,9 @@ async function startChat() {
 
   addTeacherMsg(
     'שלום ' + studentName + '! &#128075;<br>' +
-    'ברוך/ה הבא/ה לשיעור על חג הפסח! &#127838;<br>' +
-    'אני אשאל שאלות ואת/ה תענה. על כל תשובה נכונה תקבל/י נקודות!<br>' +
-    'מי שמגיע ראשון ל-1000 נקודות — מנצח! &#127942;'
+    'ברוך הבא לשיעור על חג הפסח! &#127838;<br>' +
+    'אני אשאל שאלות ואתה תענה. על כל תשובה נכונה תקבל נקודות!<br>' +
+    'בסוף נראה מי צבר הכי הרבה בטבלת המובילים! &#127942;'
   );
 
   await delay(600);
@@ -1077,7 +1043,6 @@ function showScorePopup(text) {
 // LEADERBOARD — shared via localStorage
 // =============================================
 const LB_KEY = 'pesach_leaderboard';
-const LB_WINNER_KEY = 'pesach_winner';
 
 function getLeaderboard() {
   try { return JSON.parse(localStorage.getItem(LB_KEY) || '{}'); } catch { return {}; }
@@ -1087,11 +1052,6 @@ function updateLeaderboard() {
   const lb = getLeaderboard();
   lb[sessionId] = { name: studentName, score: score, time: Date.now() };
   localStorage.setItem(LB_KEY, JSON.stringify(lb));
-
-  // Check winner
-  if (score >= 1000 && !localStorage.getItem(LB_WINNER_KEY)) {
-    localStorage.setItem(LB_WINNER_KEY, JSON.stringify({ name: studentName, id: sessionId }));
-  }
 }
 
 function renderLeaderboard() {
@@ -1110,31 +1070,10 @@ function renderLeaderboard() {
     div.className = 'lb-entry' + (e.id === sessionId ? ' me' : '');
     div.innerHTML =
       '<div class="lb-rank">' + (i < 3 ? medals[i] : (i + 1)) + '</div>' +
-      '<div class="lb-name">' + e.name + (e.id === sessionId ? ' <span class="me-tag">(את/ה)</span>' : '') + '</div>' +
+      '<div class="lb-name">' + e.name + (e.id === sessionId ? ' <span class="me-tag">(זה אני!)</span>' : '') + '</div>' +
       '<div class="lb-score-num">' + e.score + '</div>';
     container.appendChild(div);
   });
-
-  // My progress bar
-  const myScore = lb[sessionId]?.score || 0;
-  const pct = Math.min(100, (myScore / 1000) * 100);
-  document.getElementById('lbProgressFill').style.width = pct + '%';
-  document.getElementById('lbProgressText').textContent = myScore + '/1000';
-
-  // Winner?
-  const winnerBanner = document.getElementById('lbWinnerBanner');
-  try {
-    const winner = JSON.parse(localStorage.getItem(LB_WINNER_KEY));
-    if (winner) {
-      winnerBanner.className = 'lb-winner-banner';
-      winnerBanner.innerHTML = '&#127942;&#127881; ' + winner.name + ' הגיע/ה ל-1000 וניצח/ה! &#127881;&#127942;';
-    } else {
-      winnerBanner.innerHTML = '';
-      winnerBanner.className = '';
-    }
-  } catch {
-    winnerBanner.innerHTML = '';
-  }
 }
 
 function openLB() {
@@ -1148,7 +1087,7 @@ function closeLB() {
 
 // Listen for other tabs' updates
 window.addEventListener('storage', (e) => {
-  if (e.key === LB_KEY || e.key === LB_WINNER_KEY) {
+  if (e.key === LB_KEY) {
     if (!document.getElementById('leaderboardOverlay').classList.contains('hidden')) {
       renderLeaderboard();
     }
