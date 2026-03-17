@@ -931,16 +931,26 @@ function generateId() {
 // =============================================
 // ENTER CHAT
 // =============================================
-function enterChat() {
+async function enterChat() {
   const input = document.getElementById('studentNameInput');
   const name = input.value.trim();
   if (!name) { input.style.borderColor = '#ff6b6b'; return; }
   studentName = name;
   sessionId = generateId();
-  document.getElementById('nameModal').classList.add('hidden');
-  document.getElementById('groupMembers').textContent = 'תלמידי כיתה ה׳, הרב שמשון, ' + name;
 
-  updateLeaderboard();
+  // Show loading state
+  const btn = input.nextElementSibling?.nextElementSibling;
+  if (btn) btn.textContent = '...מתחבר';
+
+  // Create personal blob + register in registry
+  const created = await createPersonalBlob();
+  if (created) {
+    await registerInRegistry();
+  }
+
+  document.getElementById('nameModal').classList.add('hidden');
+  document.getElementById('groupMembers').textContent = 'מתחבר...';
+
   showFloatingBtn();
   startLivePolling();
   startChat();
@@ -1299,139 +1309,145 @@ function showScorePopup(text) {
 }
 
 // =============================================
-// LEADERBOARD — cloud synced via jsonblob
-// with retry + merge to prevent overwrites
+// LEADERBOARD — per-student blobs (no overwrites)
+// Each student writes ONLY to their own blob.
+// A registry blob maps session IDs to blob URLs.
+// Reading = fetch registry + fetch all personal blobs.
 // =============================================
-const BLOB_URL = 'https://jsonblob.com/api/jsonBlob/019cfb66-4332-72ec-b5c2-b5af2450ea03';
-let cachedLB = {};
-let updateQueue = [];
-let isProcessingQueue = false;
+const REGISTRY_URL = 'https://jsonblob.com/api/jsonBlob/019cfb66-4332-72ec-b5c2-b5af2450ea03';
+const JB_BASE = 'https://jsonblob.com/api/jsonBlob/';
+let myBlobId = null;
+let allPlayers = {}; // { name, score, lastSeen } per player
+let prevScores = {};
 
-async function fetchLeaderboard() {
+// --- Step 1: Create personal blob on enter ---
+async function createPersonalBlob() {
   try {
-    const res = await fetch(BLOB_URL + '?_t=' + Date.now(), {
-      headers: { 'Accept': 'application/json' },
-      cache: 'no-store'
+    const res = await fetch(JB_BASE.replace(/\/+$/, ''), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ name: studentName, score: 0, lastSeen: Date.now() })
     });
-    if (res.ok) {
-      const data = await res.json();
-      if (data && typeof data === 'object') {
-        cachedLB = data;
-      }
+    const blobId = res.headers.get('X-jsonblob-id') || res.headers.get('Location')?.split('/').pop();
+    if (blobId) {
+      myBlobId = blobId;
+      return true;
     }
-  } catch (e) {
-    console.log('Fetch LB error:', e);
-  }
-  return cachedLB;
+  } catch(e) { console.log('Create blob error:', e); }
+  return false;
 }
 
-// Queue-based update to prevent race conditions
-async function updateLeaderboard() {
-  // Add to queue
-  updateQueue.push({ id: sessionId, name: studentName, score: score, time: Date.now(), online: true, lastSeen: Date.now() });
-  processQueue();
-}
-
-async function processQueue() {
-  if (isProcessingQueue || updateQueue.length === 0) return;
-  isProcessingQueue = true;
-
-  // Take all pending updates
-  const pending = [...updateQueue];
-  updateQueue = [];
-
-  const maxRetries = 3;
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
+// --- Step 2: Register in the registry ---
+async function registerInRegistry() {
+  for (let attempt = 0; attempt < 4; attempt++) {
     try {
-      // Always fetch latest from cloud first
-      await fetchLeaderboard();
-
-      // Merge ALL pending updates into latest data
-      pending.forEach(p => {
-        cachedLB[p.id] = { name: p.name, score: p.score, time: p.time, online: p.online, lastSeen: p.lastSeen };
+      const res = await fetch(REGISTRY_URL + '?_t=' + Date.now(), {
+        headers: { 'Accept': 'application/json' }, cache: 'no-store'
       });
+      const registry = res.ok ? await res.json() : {};
 
-      // Write merged data back
-      const res = await fetch(BLOB_URL, {
+      // Add myself
+      registry[sessionId] = { blobId: myBlobId, name: studentName };
+
+      const writeRes = await fetch(REGISTRY_URL, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify(cachedLB)
+        body: JSON.stringify(registry)
       });
 
-      if (res.ok) {
-        refreshTickerFromCache();
-        updateOnlineMembers();
-        break; // Success
+      if (writeRes.ok) {
+        // Verify my entry survived
+        const verifyRes = await fetch(REGISTRY_URL + '?_t=' + Date.now(), {
+          headers: { 'Accept': 'application/json' }, cache: 'no-store'
+        });
+        const verified = verifyRes.ok ? await verifyRes.json() : {};
+        if (verified[sessionId]) return true;
       }
-    } catch (e) {
-      console.log('Update attempt', attempt + 1, 'failed:', e);
-      // Wait a random time before retry to desync competing writes
-      await delay(300 + Math.random() * 700);
-    }
+    } catch(e) {}
+    await delay(500 + Math.random() * 1000);
   }
-
-  isProcessingQueue = false;
-
-  // Process any new items that arrived while we were working
-  if (updateQueue.length > 0) processQueue();
+  return false;
 }
 
-// Heartbeat: mark self as online every 6 seconds
-async function sendHeartbeat() {
-  if (!sessionId) return;
+// --- Step 3: Write to MY blob only (score + heartbeat) ---
+async function writeMyBlob() {
+  if (!myBlobId) return;
   try {
-    await fetchLeaderboard();
-    if (cachedLB[sessionId]) {
-      cachedLB[sessionId].lastSeen = Date.now();
-      cachedLB[sessionId].online = true;
-      cachedLB[sessionId].score = score; // always keep score fresh
-    } else {
-      cachedLB[sessionId] = { name: studentName, score: score, time: Date.now(), online: true, lastSeen: Date.now() };
-    }
-    await fetch(BLOB_URL, {
+    await fetch(JB_BASE + myBlobId, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify(cachedLB)
+      body: JSON.stringify({ name: studentName, score: score, lastSeen: Date.now() })
     });
-    refreshTickerFromCache();
-    updateOnlineMembers();
-  } catch(e) {}
+  } catch(e) { console.log('Write my blob error:', e); }
 }
 
-// Update group members line to show who's online
+// --- Step 4: Read ALL players (registry + all blobs) ---
+async function fetchAllPlayers() {
+  try {
+    // Fetch registry
+    const res = await fetch(REGISTRY_URL + '?_t=' + Date.now(), {
+      headers: { 'Accept': 'application/json' }, cache: 'no-store'
+    });
+    if (!res.ok) return;
+    const registry = await res.json();
+    if (!registry || typeof registry !== 'object') return;
+
+    // Fetch all personal blobs in parallel
+    const entries = Object.entries(registry);
+    const fetches = entries.map(async ([id, info]) => {
+      try {
+        const r = await fetch(JB_BASE + info.blobId + '?_t=' + Date.now(), {
+          headers: { 'Accept': 'application/json' }, cache: 'no-store'
+        });
+        if (r.ok) {
+          const data = await r.json();
+          return { id, name: data.name || info.name, score: data.score || 0, lastSeen: data.lastSeen || 0 };
+        }
+      } catch(e) {}
+      return { id, name: info.name, score: 0, lastSeen: 0 };
+    });
+
+    const results = await Promise.all(fetches);
+    allPlayers = {};
+    results.forEach(p => { allPlayers[p.id] = p; });
+  } catch(e) { console.log('Fetch all error:', e); }
+}
+
+// --- Update leaderboard (called after answering) ---
+async function updateLeaderboard() {
+  await writeMyBlob();
+  refreshTickerFromCache();
+}
+
+// --- Online members in topbar ---
 function updateOnlineMembers() {
   const el = document.getElementById('groupMembers');
   if (!el) return;
-  const now = Date.now();
-  const ONLINE_TIMEOUT = 20000; // 20 seconds
-  const entries = Object.entries(cachedLB);
+  const nowMs = Date.now();
+  const ONLINE_TIMEOUT = 25000;
   const onlineNames = [];
   const offlineNames = [];
 
-  entries.forEach(([id, d]) => {
-    const isOnline = d.lastSeen && (now - d.lastSeen) < ONLINE_TIMEOUT;
-    if (isOnline) {
-      onlineNames.push(d.name + (id === sessionId ? ' (אני)' : ''));
-    } else {
-      offlineNames.push(d.name);
-    }
+  Object.entries(allPlayers).forEach(([id, d]) => {
+    const isOnline = d.lastSeen && (nowMs - d.lastSeen) < ONLINE_TIMEOUT;
+    const label = d.name + (id === sessionId ? ' (אני)' : '');
+    if (isOnline) onlineNames.push(label);
+    else offlineNames.push(label);
   });
 
   let text = '';
-  if (onlineNames.length > 0) {
-    text += '\u{1F7E2} מחוברים: ' + onlineNames.join(', ');
-  }
+  if (onlineNames.length > 0) text += '\u{1F7E2} מחוברים: ' + onlineNames.join(', ');
   if (offlineNames.length > 0) {
     if (text) text += ' | ';
     text += '\u26AA ' + offlineNames.join(', ');
   }
   if (!text) text = 'הרב שמשון, תלמידי כיתה ה׳';
-
   el.textContent = text;
 }
 
+// --- Render ticker from allPlayers ---
 function refreshTickerFromCache() {
-  const entries = Object.entries(cachedLB)
+  const entries = Object.entries(allPlayers)
     .map(([id, d]) => ({ id, ...d }))
     .sort((a, b) => b.score - a.score);
 
@@ -1439,19 +1455,19 @@ function refreshTickerFromCache() {
   if (!scroll) return;
   scroll.innerHTML = '';
 
-  const now = Date.now();
-  const ONLINE_TIMEOUT = 20000;
+  const nowMs = Date.now();
+  const ONLINE_TIMEOUT = 25000;
   const medals = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
 
   entries.forEach((e, i) => {
     const item = document.createElement('div');
     let cls = 'live-ticker-item';
     if (e.id === sessionId) cls += ' me';
-    if (i === 0) cls += ' first';
+    if (i === 0 && entries.length > 1) cls += ' first';
     item.className = cls;
 
     const medal = i < 3 ? medals[i] : (i + 1);
-    const isOnline = e.lastSeen && (now - e.lastSeen) < ONLINE_TIMEOUT;
+    const isOnline = e.lastSeen && (nowMs - e.lastSeen) < ONLINE_TIMEOUT;
     const onlineDot = isOnline ? '<span style="color:#4ade80;font-size:8px;">&#11044;</span> ' : '';
     const changed = prevScores[e.id] !== undefined && e.score > prevScores[e.id];
     const diff = changed ? e.score - prevScores[e.id] : 0;
@@ -1480,10 +1496,10 @@ function setSyncStatus(text, active) {
 
 async function renderLeaderboard() {
   setSyncStatus('&#8987; טוען...', true);
-  await fetchLeaderboard();
+  await fetchAllPlayers();
   setSyncStatus('&#128504; מסונכרן', false);
 
-  const entries = Object.entries(cachedLB)
+  const entries = Object.entries(allPlayers)
     .map(([id, d]) => ({ id, ...d }))
     .sort((a, b) => b.score - a.score);
 
@@ -1495,18 +1511,18 @@ async function renderLeaderboard() {
     return;
   }
 
-  const now = Date.now();
-  const ONLINE_TIMEOUT = 20000;
+  const nowMs = Date.now();
+  const ONLINE_TIMEOUT = 25000;
   const medals = ['&#129351;', '&#129352;', '&#129353;'];
 
   entries.forEach((e, i) => {
     const div = document.createElement('div');
     let cls = 'lb-entry';
     if (e.id === sessionId) cls += ' me';
-    if (i === 0) cls += ' first';
+    if (i === 0 && entries.length > 1) cls += ' first';
     div.className = cls;
 
-    const isOnline = e.lastSeen && (now - e.lastSeen) < ONLINE_TIMEOUT;
+    const isOnline = e.lastSeen && (nowMs - e.lastSeen) < ONLINE_TIMEOUT;
     const statusDot = isOnline
       ? '<span style="color:#4ade80;font-size:10px;">&#11044;</span> '
       : '<span style="color:#8696a0;font-size:10px;">&#11044;</span> ';
@@ -1541,29 +1557,21 @@ async function refreshLB() {
   await renderLeaderboard();
 }
 
-// === LIVE TICKER ===
-let prevScores = {};
-
-async function updateLiveTicker() {
-  await fetchLeaderboard();
+// === LIVE POLLING: fetch everyone + write heartbeat every 7s ===
+async function liveTickerPoll() {
+  await writeMyBlob(); // heartbeat + score
+  await fetchAllPlayers(); // read everyone
   refreshTickerFromCache();
   updateOnlineMembers();
-
-  // Also update full leaderboard if open
   if (!document.getElementById('leaderboardOverlay').classList.contains('hidden')) {
     renderLeaderboard();
   }
 }
 
-// Auto-poll every 6 seconds + heartbeat every 6 seconds
 let tickerInterval = null;
 function startLivePolling() {
-  updateLiveTicker();
-  sendHeartbeat();
-  tickerInterval = setInterval(() => {
-    updateLiveTicker();
-    sendHeartbeat();
-  }, 6000);
+  liveTickerPoll();
+  tickerInterval = setInterval(liveTickerPoll, 7000);
 }
 
 // =============================================
