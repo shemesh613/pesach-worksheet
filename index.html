@@ -1300,18 +1300,24 @@ function showScorePopup(text) {
 
 // =============================================
 // LEADERBOARD — cloud synced via jsonblob
+// with retry + merge to prevent overwrites
 // =============================================
 const BLOB_URL = 'https://jsonblob.com/api/jsonBlob/019cfb66-4332-72ec-b5c2-b5af2450ea03';
 let cachedLB = {};
-let syncing = false;
+let updateQueue = [];
+let isProcessingQueue = false;
 
 async function fetchLeaderboard() {
   try {
-    const res = await fetch(BLOB_URL, {
-      headers: { 'Accept': 'application/json' }
+    const res = await fetch(BLOB_URL + '?_t=' + Date.now(), {
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store'
     });
     if (res.ok) {
-      cachedLB = await res.json();
+      const data = await res.json();
+      if (data && typeof data === 'object') {
+        cachedLB = data;
+      }
     }
   } catch (e) {
     console.log('Fetch LB error:', e);
@@ -1319,35 +1325,109 @@ async function fetchLeaderboard() {
   return cachedLB;
 }
 
+// Queue-based update to prevent race conditions
 async function updateLeaderboard() {
-  if (syncing) return;
-  syncing = true;
-  setSyncStatus('&#8987; מסנכרן...', true);
+  // Add to queue
+  updateQueue.push({ id: sessionId, name: studentName, score: score, time: Date.now(), online: true, lastSeen: Date.now() });
+  processQueue();
+}
 
+async function processQueue() {
+  if (isProcessingQueue || updateQueue.length === 0) return;
+  isProcessingQueue = true;
+
+  // Take all pending updates
+  const pending = [...updateQueue];
+  updateQueue = [];
+
+  const maxRetries = 3;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      // Always fetch latest from cloud first
+      await fetchLeaderboard();
+
+      // Merge ALL pending updates into latest data
+      pending.forEach(p => {
+        cachedLB[p.id] = { name: p.name, score: p.score, time: p.time, online: p.online, lastSeen: p.lastSeen };
+      });
+
+      // Write merged data back
+      const res = await fetch(BLOB_URL, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(cachedLB)
+      });
+
+      if (res.ok) {
+        refreshTickerFromCache();
+        updateOnlineMembers();
+        break; // Success
+      }
+    } catch (e) {
+      console.log('Update attempt', attempt + 1, 'failed:', e);
+      // Wait a random time before retry to desync competing writes
+      await delay(300 + Math.random() * 700);
+    }
+  }
+
+  isProcessingQueue = false;
+
+  // Process any new items that arrived while we were working
+  if (updateQueue.length > 0) processQueue();
+}
+
+// Heartbeat: mark self as online every 6 seconds
+async function sendHeartbeat() {
+  if (!sessionId) return;
   try {
-    // Fetch latest first to avoid overwriting others
     await fetchLeaderboard();
-
-    // Update my entry
-    cachedLB[sessionId] = { name: studentName, score: score, time: Date.now() };
-
-    // Save to cloud
+    if (cachedLB[sessionId]) {
+      cachedLB[sessionId].lastSeen = Date.now();
+      cachedLB[sessionId].online = true;
+      cachedLB[sessionId].score = score; // always keep score fresh
+    } else {
+      cachedLB[sessionId] = { name: studentName, score: score, time: Date.now(), online: true, lastSeen: Date.now() };
+    }
     await fetch(BLOB_URL, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
       body: JSON.stringify(cachedLB)
     });
-
-    setSyncStatus('&#128504; מסונכרן', false);
-
-    // Refresh ticker immediately
     refreshTickerFromCache();
-  } catch (e) {
-    console.log('Update LB error:', e);
-    setSyncStatus('&#9888; שגיאת סנכרון', false);
-  }
+    updateOnlineMembers();
+  } catch(e) {}
+}
 
-  syncing = false;
+// Update group members line to show who's online
+function updateOnlineMembers() {
+  const el = document.getElementById('groupMembers');
+  if (!el) return;
+  const now = Date.now();
+  const ONLINE_TIMEOUT = 20000; // 20 seconds
+  const entries = Object.entries(cachedLB);
+  const onlineNames = [];
+  const offlineNames = [];
+
+  entries.forEach(([id, d]) => {
+    const isOnline = d.lastSeen && (now - d.lastSeen) < ONLINE_TIMEOUT;
+    if (isOnline) {
+      onlineNames.push(d.name + (id === sessionId ? ' (אני)' : ''));
+    } else {
+      offlineNames.push(d.name);
+    }
+  });
+
+  let text = '';
+  if (onlineNames.length > 0) {
+    text += '\u{1F7E2} מחוברים: ' + onlineNames.join(', ');
+  }
+  if (offlineNames.length > 0) {
+    if (text) text += ' | ';
+    text += '\u26AA ' + offlineNames.join(', ');
+  }
+  if (!text) text = 'הרב שמשון, תלמידי כיתה ה׳';
+
+  el.textContent = text;
 }
 
 function refreshTickerFromCache() {
@@ -1359,6 +1439,8 @@ function refreshTickerFromCache() {
   if (!scroll) return;
   scroll.innerHTML = '';
 
+  const now = Date.now();
+  const ONLINE_TIMEOUT = 20000;
   const medals = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
 
   entries.forEach((e, i) => {
@@ -1369,12 +1451,19 @@ function refreshTickerFromCache() {
     item.className = cls;
 
     const medal = i < 3 ? medals[i] : (i + 1);
+    const isOnline = e.lastSeen && (now - e.lastSeen) < ONLINE_TIMEOUT;
+    const onlineDot = isOnline ? '<span style="color:#4ade80;font-size:8px;">&#11044;</span> ' : '';
+    const changed = prevScores[e.id] !== undefined && e.score > prevScores[e.id];
+    const diff = changed ? e.score - prevScores[e.id] : 0;
+
     item.innerHTML =
       '<span class="live-ticker-medal">' + medal + '</span>' +
-      '<span class="live-ticker-name">' + e.name + '</span>' +
-      '<span class="live-ticker-score">' + e.score + '</span>';
+      '<span class="live-ticker-name">' + onlineDot + e.name + '</span>' +
+      '<span class="live-ticker-score">' + e.score + '</span>' +
+      (changed ? '<span class="live-ticker-change">+' + diff + '</span>' : '');
 
     scroll.appendChild(item);
+    prevScores[e.id] = e.score;
   });
 
   const floatingBadge = document.getElementById('floatingLbCount');
@@ -1406,6 +1495,8 @@ async function renderLeaderboard() {
     return;
   }
 
+  const now = Date.now();
+  const ONLINE_TIMEOUT = 20000;
   const medals = ['&#129351;', '&#129352;', '&#129353;'];
 
   entries.forEach((e, i) => {
@@ -1414,14 +1505,19 @@ async function renderLeaderboard() {
     if (e.id === sessionId) cls += ' me';
     if (i === 0) cls += ' first';
     div.className = cls;
+
+    const isOnline = e.lastSeen && (now - e.lastSeen) < ONLINE_TIMEOUT;
+    const statusDot = isOnline
+      ? '<span style="color:#4ade80;font-size:10px;">&#11044;</span> '
+      : '<span style="color:#8696a0;font-size:10px;">&#11044;</span> ';
+
     div.innerHTML =
       '<div class="lb-rank">' + (i < 3 ? medals[i] : (i + 1)) + '</div>' +
-      '<div class="lb-name">' + e.name + (e.id === sessionId ? ' <span class="me-tag">(זה אני!)</span>' : '') + '</div>' +
+      '<div class="lb-name">' + statusDot + e.name + (e.id === sessionId ? ' <span class="me-tag">(זה אני!)</span>' : '') + '</div>' +
       '<div class="lb-score-num">' + e.score + ' נק׳</div>';
     container.appendChild(div);
   });
 
-  // Update floating badge
   const floatingBadge = document.getElementById('floatingLbCount');
   if (floatingBadge) floatingBadge.textContent = entries.length;
 }
@@ -1450,43 +1546,8 @@ let prevScores = {};
 
 async function updateLiveTicker() {
   await fetchLeaderboard();
-
-  const entries = Object.entries(cachedLB)
-    .map(([id, d]) => ({ id, ...d }))
-    .sort((a, b) => b.score - a.score);
-
-  const scroll = document.getElementById('liveTickerScroll');
-  if (!scroll) return;
-  scroll.innerHTML = '';
-
-  const medals = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
-
-  entries.forEach((e, i) => {
-    const item = document.createElement('div');
-    let cls = 'live-ticker-item';
-    if (e.id === sessionId) cls += ' me';
-    if (i === 0) cls += ' first';
-    item.className = cls;
-
-    const medal = i < 3 ? medals[i] : (i + 1);
-    const changed = prevScores[e.id] !== undefined && e.score > prevScores[e.id];
-    const diff = changed ? e.score - prevScores[e.id] : 0;
-
-    item.innerHTML =
-      '<span class="live-ticker-medal">' + medal + '</span>' +
-      '<span class="live-ticker-name">' + e.name + '</span>' +
-      '<span class="live-ticker-score">' + e.score + '</span>' +
-      (changed ? '<span class="live-ticker-change">+' + diff + '</span>' : '');
-
-    scroll.appendChild(item);
-  });
-
-  // Save for diff next time
-  entries.forEach(e => { prevScores[e.id] = e.score; });
-
-  // Update floating badge
-  const floatingBadge = document.getElementById('floatingLbCount');
-  if (floatingBadge) floatingBadge.textContent = entries.length;
+  refreshTickerFromCache();
+  updateOnlineMembers();
 
   // Also update full leaderboard if open
   if (!document.getElementById('leaderboardOverlay').classList.contains('hidden')) {
@@ -1494,11 +1555,15 @@ async function updateLiveTicker() {
   }
 }
 
-// Auto-poll every 8 seconds
+// Auto-poll every 6 seconds + heartbeat every 6 seconds
 let tickerInterval = null;
 function startLivePolling() {
   updateLiveTicker();
-  tickerInterval = setInterval(updateLiveTicker, 8000);
+  sendHeartbeat();
+  tickerInterval = setInterval(() => {
+    updateLiveTicker();
+    sendHeartbeat();
+  }, 6000);
 }
 
 // =============================================
