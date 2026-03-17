@@ -324,11 +324,38 @@
   .lb-close-btn:hover { background: #3a4952; }
 
   .lb-btn-topbar {
-    background: none; border: none; font-size: 20px; cursor: pointer;
-    padding: 2px; transition: transform 0.2s;
+    background: #00a884; border: none; font-size: 18px; cursor: pointer;
+    padding: 5px 12px; border-radius: 16px; transition: all 0.2s;
+    color: #fff; display: flex; align-items: center; gap: 4px;
+    font-family: 'Rubik', sans-serif; font-weight: 600; font-size: 13px;
   }
 
-  .lb-btn-topbar:hover { transform: scale(1.2); }
+  .lb-btn-topbar:hover { background: #06cf9c; transform: scale(1.05); }
+
+  .lb-floating-btn {
+    position: fixed; bottom: 120px; left: 16px; z-index: 90;
+    background: linear-gradient(135deg, #00a884, #075e54);
+    border: none; border-radius: 50%; width: 56px; height: 56px;
+    font-size: 28px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    transition: all 0.2s; display: none;
+    animation: floatBounce 2s infinite ease-in-out;
+  }
+
+  .lb-floating-btn.show { display: flex; align-items: center; justify-content: center; }
+  .lb-floating-btn:hover { transform: scale(1.1); box-shadow: 0 6px 20px rgba(0,168,132,0.5); }
+
+  @keyframes floatBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+
+  .lb-floating-badge {
+    position: absolute; top: -4px; right: -4px;
+    background: #ff6b6b; color: #fff; font-size: 11px; font-weight: 700;
+    width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Rubik', sans-serif;
+  }
 
   /* === NAME MODAL === */
   .name-modal {
@@ -483,7 +510,7 @@
       <div class="group-members" id="groupMembers">תלמידי כיתה ה׳, הרב שמשון</div>
     </div>
     <div class="score-badge" id="topScore">0 נק׳</div>
-    <button class="lb-btn-topbar" onclick="openLB()" title="טבלת מובילים">&#127942;</button>
+    <button class="lb-btn-topbar" onclick="openLB()" title="טבלת מובילים">&#127942; מובילים</button>
     <div class="topbar-icons">
       <span>&#128249;</span>
       <span>&#128222;</span>
@@ -560,6 +587,12 @@
       <button class="mic-btn" title="הקלטה">&#127908;</button>
     </div>
   </div>
+
+  <!-- FLOATING LEADERBOARD BUTTON -->
+  <button class="lb-floating-btn" id="floatingLbBtn" onclick="openLB()" title="טבלת מובילים">
+    &#127942;
+    <span class="lb-floating-badge" id="floatingLbCount">0</span>
+  </button>
 
   <!-- FIXED CREDIT BANNER -->
   <div class="credit-banner">
@@ -703,6 +736,7 @@ function enterChat() {
   document.getElementById('groupMembers').textContent = 'תלמידי כיתה ה׳, הרב שמשון, ' + name;
 
   updateLeaderboard();
+  showFloatingBtn();
   startChat();
 }
 
@@ -1074,6 +1108,15 @@ function renderLeaderboard() {
       '<div class="lb-score-num">' + e.score + '</div>';
     container.appendChild(div);
   });
+
+  // Update floating badge
+  const floatingBadge = document.getElementById('floatingLbCount');
+  if (floatingBadge) floatingBadge.textContent = entries.length;
+}
+
+function showFloatingBtn() {
+  const btn = document.getElementById('floatingLbBtn');
+  if (btn) btn.classList.add('show');
 }
 
 function openLB() {
