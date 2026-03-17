@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>דף עבודה - פסח | כיתה ה׳</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Rubik', 'Segoe UI', sans-serif;
+    background: #0b141a;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    direction: rtl;
+  }
+
+  .phone-frame {
+    width: 100%;
+    max-width: 520px;
+    min-height: 100vh;
+    background: #0b141a;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* === TOP BAR === */
+  .wa-topbar {
+    background: #1f2c34;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  }
+
+  .wa-topbar .back-arrow { color: #00a884; font-size: 22px; cursor: pointer; }
+
+  .wa-topbar .group-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: linear-gradient(135deg, #00a884, #075e54);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+
+  .wa-topbar .group-info { flex: 1; }
+  .wa-topbar .group-name { color: #e9edef; font-size: 16px; font-weight: 600; }
+  .wa-topbar .group-members { color: #8696a0; font-size: 12px; }
+
+  .wa-topbar .topbar-icons { display: flex; gap: 18px; color: #aebac1; font-size: 20px; }
+  .wa-topbar .topbar-icons span { cursor: pointer; transition: color 0.2s; }
+  .wa-topbar .topbar-icons span:hover { color: #e9edef; }
+
+  .wa-topbar .score-badge {
+    background: #00a884; color: #fff; font-size: 12px; font-weight: 700;
+    padding: 3px 10px; border-radius: 12px; margin-left: 6px;
+    min-width: 40px; text-align: center;
+  }
+
+  /* === CHAT AREA === */
+  .chat-area {
+    flex: 1; overflow-y: auto; padding: 12px 16px 8px;
+    background: #0b141a;
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5 L35 15 L30 12 L25 15Z' fill='%23111b21' opacity='0.3'/%3E%3Ccircle cx='10' cy='40' r='2' fill='%23111b21' opacity='0.2'/%3E%3Ccircle cx='50' cy='35' r='1.5' fill='%23111b21' opacity='0.2'/%3E%3C/svg%3E");
+  }
+
+  .chat-area::-webkit-scrollbar { width: 6px; }
+  .chat-area::-webkit-scrollbar-track { background: transparent; }
+  .chat-area::-webkit-scrollbar-thumb { background: #374248; border-radius: 3px; }
+
+  .date-badge { text-align: center; margin: 12px 0; }
+  .date-badge span {
+    background: #182229; color: #8696a0; font-size: 12px;
+    padding: 5px 14px; border-radius: 8px; display: inline-block;
+  }
+
+  .system-msg { clear: both; text-align: center; margin: 10px 0; }
+  .system-msg span {
+    background: #182229; color: #8696a0; font-size: 12.5px;
+    padding: 5px 14px; border-radius: 8px; display: inline-block; max-width: 85%;
+  }
+
+  .spacer { height: 8px; clear: both; }
+
+  /* === MESSAGES === */
+  .message {
+    max-width: 85%; padding: 6px 10px 4px; border-radius: 10px;
+    margin-bottom: 4px; position: relative; line-height: 1.5;
+    font-size: 14.5px; clear: both;
+    animation: msgIn 0.35s ease-out;
+  }
+
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .message.received {
+    background: #1f2c34; color: #e9edef;
+    float: right; border-top-right-radius: 0; margin-left: 15%;
+  }
+
+  .message.sent {
+    background: #005c4b; color: #e9edef;
+    float: left; border-top-left-radius: 0; margin-right: 15%;
+  }
+
+  .message .sender { font-size: 12.5px; font-weight: 600; margin-bottom: 2px; display: block; }
+  .message.received .sender { color: #00a884; }
+  .message.sent .sender { color: #53bdeb; }
+
+  .msg-time {
+    font-size: 11px; color: rgba(255,255,255,0.45);
+    float: left; margin-top: 2px; margin-right: 6px;
+    display: flex; align-items: center; gap: 3px;
+  }
+
+  .msg-time .read-ticks { color: #53bdeb; font-size: 14px; }
+
+  .clearfix::after { content: ""; display: table; clear: both; }
+
+  /* === TYPING INDICATOR === */
+  .typing-indicator {
+    clear: both; float: right; margin-left: 15%;
+    background: #1f2c34; border-radius: 10px; border-top-right-radius: 0;
+    padding: 10px 16px; margin-bottom: 4px; display: none;
+    animation: msgIn 0.3s ease-out;
+  }
+
+  .typing-indicator.show { display: block; }
+
+  .typing-indicator .sender {
+    color: #00a884; font-size: 12.5px; font-weight: 600; display: block; margin-bottom: 4px;
+  }
+
+  .typing-dots { display: flex; gap: 4px; align-items: center; }
+
+  .typing-dots span {
+    width: 8px; height: 8px; border-radius: 50%; background: #8696a0;
+    animation: dotPulse 1.4s infinite ease-in-out;
+  }
+
+  .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes dotPulse {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-6px); opacity: 1; }
+  }
+
+  /* === ANSWER OPTIONS === */
+  .answer-options { clear: both; margin: 6px 0; padding-right: 20px; }
+
+  .answer-option {
+    background: #1a2a33; border: 2px solid #2a3942; border-radius: 12px;
+    padding: 10px 14px; margin-bottom: 6px; cursor: pointer;
+    transition: all 0.25s; display: flex; align-items: center;
+    gap: 10px; color: #e9edef; font-size: 14px;
+    max-width: 85%; float: right; clear: both;
+  }
+
+  .answer-option:hover { background: #22363f; border-color: #00a884; }
+
+  .answer-option .option-circle {
+    width: 22px; height: 22px; border-radius: 50%; border: 2px solid #8696a0;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: all 0.25s; font-size: 13px;
+  }
+
+  .answer-option.correct { border-color: #00a884; background: #0d3b30; }
+  .answer-option.correct .option-circle { background: #00a884; border-color: #00a884; color: #fff; }
+  .answer-option.wrong { border-color: #ff6b6b; background: #3b1a1a; }
+  .answer-option.wrong .option-circle { background: #ff6b6b; border-color: #ff6b6b; color: #fff; }
+  .answer-option.disabled { pointer-events: none; opacity: 0.7; }
+
+  /* === OPEN QUESTION === */
+  .open-answer-area { clear: both; max-width: 88%; float: right; margin: 6px 0; width: 88%; }
+
+  .open-answer-area textarea {
+    width: 100%; background: #1a2a33; border: 2px solid #2a3942;
+    border-radius: 12px; padding: 10px 14px; color: #e9edef;
+    font-family: 'Rubik', sans-serif; font-size: 14px; resize: none;
+    min-height: 70px; direction: rtl; outline: none; transition: border-color 0.3s;
+  }
+
+  .open-answer-area textarea:focus { border-color: #00a884; }
+  .open-answer-area textarea::placeholder { color: #8696a0; }
+
+  .open-answer-btn {
+    background: #00a884; color: #fff; border: none; padding: 8px 20px;
+    border-radius: 20px; font-family: 'Rubik', sans-serif; font-size: 13px;
+    cursor: pointer; margin-top: 6px; float: left; transition: background 0.2s;
+  }
+
+  .open-answer-btn:hover { background: #06cf9c; }
+  .open-answer-btn:disabled { background: #2a3942; cursor: default; }
+
+  /* === Q POINTS BADGE === */
+  .q-points {
+    display: inline-block; background: #00a884; color: #fff;
+    font-size: 11px; padding: 1px 8px; border-radius: 10px;
+    margin-right: 6px; font-weight: 500;
+  }
+
+  .q-number { color: #00a884; font-weight: 700; }
+  .q-emoji { font-size: 18px; margin-left: 4px; }
+
+  /* === EMOJI TOOLBAR === */
+  .emoji-toolbar {
+    background: #1f2c34; border-top: 1px solid #2a3942;
+    padding: 6px 8px; position: sticky; bottom: 0; z-index: 100;
+  }
+
+  .emoji-toolbar-top { display: flex; align-items: center; gap: 6px; padding: 4px 6px; }
+
+  .emoji-toggle-btn {
+    background: none; border: none; font-size: 24px; cursor: pointer;
+    padding: 4px; border-radius: 50%; transition: background 0.2s;
+  }
+
+  .emoji-toggle-btn:hover { background: #2a3942; }
+
+  .msg-input-fake {
+    flex: 1; background: #2a3942; border-radius: 24px; padding: 8px 16px;
+    color: #8696a0; font-size: 14px; display: flex; align-items: center; min-height: 40px;
+  }
+
+  .input-icons { display: flex; gap: 12px; color: #8696a0; font-size: 20px; }
+
+  .mic-btn {
+    width: 42px; height: 42px; background: #00a884; border: none;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 20px; cursor: pointer; transition: background 0.2s;
+  }
+
+  .mic-btn:hover { background: #06cf9c; }
+
+  .emoji-panel {
+    display: none; background: #1f2c34; padding: 8px;
+    border-top: 1px solid #2a3942; max-height: 220px; overflow-y: auto;
+  }
+
+  .emoji-panel.open { display: block; }
+  .emoji-panel::-webkit-scrollbar { width: 5px; }
+  .emoji-panel::-webkit-scrollbar-thumb { background: #374248; border-radius: 3px; }
+
+  .emoji-category-title { color: #00a884; font-size: 12px; font-weight: 600; margin: 8px 4px 4px; }
+
+  .emoji-grid { display: flex; flex-wrap: wrap; gap: 2px; }
+
+  .emoji-btn {
+    font-size: 26px; background: none; border: none; cursor: pointer;
+    padding: 6px; border-radius: 8px; transition: background 0.15s, transform 0.15s; line-height: 1;
+  }
+
+  .emoji-btn:hover { background: #2a3942; transform: scale(1.2); }
+
+  /* === MY EMOJIS BAR === */
+  .my-emojis-bar {
+    clear: both; text-align: center; padding: 4px 0; min-height: 5px;
+  }
+
+  .my-emojis-bar .emoji-bubble {
+    display: inline-block; font-size: 24px; margin: 2px;
+    animation: floatUp 0.5s ease-out;
+  }
+
+  @keyframes floatUp {
+    from { opacity: 0; transform: translateY(20px) scale(0.3); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* === LEADERBOARD === */
+  .leaderboard-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+  }
+
+  .leaderboard-overlay.hidden { display: none; }
+
+  .leaderboard-box {
+    background: #1f2c34; border-radius: 20px; padding: 24px;
+    width: 360px; max-height: 80vh; overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6); text-align: center;
+  }
+
+  .leaderboard-box h2 { color: #e9edef; font-size: 20px; margin-bottom: 4px; }
+  .leaderboard-box .lb-subtitle { color: #8696a0; font-size: 13px; margin-bottom: 16px; }
+
+  .lb-progress-bar {
+    background: #2a3942; border-radius: 10px; height: 18px;
+    margin: 10px 0 16px; overflow: hidden; position: relative;
+  }
+
+  .lb-progress-fill {
+    background: linear-gradient(90deg, #00a884, #06cf9c);
+    height: 100%; border-radius: 10px; transition: width 0.8s ease-out;
+    position: relative;
+  }
+
+  .lb-progress-text {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    font-size: 11px; color: #fff; font-weight: 600;
+  }
+
+  .lb-entry {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    background: #182229; border-radius: 12px; margin-bottom: 6px;
+    transition: background 0.2s;
+  }
+
+  .lb-entry.me { background: #0d3b30; border: 1px solid #00a884; }
+
+  .lb-rank {
+    font-size: 20px; width: 36px; text-align: center; flex-shrink: 0;
+  }
+
+  .lb-name { color: #e9edef; font-size: 14px; flex: 1; text-align: right; }
+  .lb-name .me-tag { color: #00a884; font-size: 11px; }
+
+  .lb-score-num {
+    color: #00a884; font-size: 16px; font-weight: 700; min-width: 50px; text-align: left;
+  }
+
+  .lb-winner-banner {
+    background: linear-gradient(135deg, #ffd700, #ff8c00);
+    color: #1a1a1a; padding: 12px; border-radius: 14px; margin: 12px 0;
+    font-size: 16px; font-weight: 700;
+    animation: winPulse 1s infinite alternate;
+  }
+
+  @keyframes winPulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.03); }
+  }
+
+  .lb-close-btn {
+    background: #2a3942; color: #e9edef; border: none; padding: 10px 30px;
+    border-radius: 24px; font-family: 'Rubik', sans-serif; font-size: 14px;
+    cursor: pointer; margin-top: 12px; transition: background 0.2s;
+  }
+
+  .lb-close-btn:hover { background: #3a4952; }
+
+  .lb-btn-topbar {
+    background: none; border: none; font-size: 20px; cursor: pointer;
+    padding: 2px; transition: transform 0.2s;
+  }
+
+  .lb-btn-topbar:hover { transform: scale(1.2); }
+
+  /* === NAME MODAL === */
+  .name-modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center; z-index: 999;
+  }
+
+  .name-modal.hidden { display: none; }
+
+  .name-modal-box {
+    background: #1f2c34; border-radius: 16px; padding: 30px;
+    text-align: center; width: 340px; box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  }
+
+  .name-modal-box h2 { color: #e9edef; font-size: 22px; margin-bottom: 6px; }
+  .name-modal-box p { color: #8696a0; font-size: 13px; margin-bottom: 16px; line-height: 1.6; }
+
+  .name-modal-box input {
+    width: 100%; background: #2a3942; border: 2px solid #3a4952;
+    border-radius: 12px; padding: 10px 14px; color: #e9edef;
+    font-family: 'Rubik', sans-serif; font-size: 15px;
+    text-align: center; outline: none; direction: rtl;
+  }
+
+  .name-modal-box input:focus { border-color: #00a884; }
+
+  .name-modal-box button {
+    background: #00a884; color: #fff; border: none; padding: 10px 40px;
+    border-radius: 24px; font-family: 'Rubik', sans-serif; font-size: 15px;
+    cursor: pointer; margin-top: 14px; font-weight: 600; transition: background 0.2s;
+  }
+
+  .name-modal-box button:hover { background: #06cf9c; }
+
+  .restart-btn {
+    background: none; border: 1px solid #3a4952; color: #8696a0;
+    padding: 6px 16px; border-radius: 16px; font-family: 'Rubik', sans-serif;
+    font-size: 12px; cursor: pointer; margin-top: 10px; transition: all 0.2s;
+  }
+
+  .restart-btn:hover { border-color: #ff6b6b; color: #ff6b6b; }
+
+  /* === CREDIT === */
+  .credit {
+    clear: both; text-align: center; padding: 30px 16px; margin: 20px 0;
+  }
+
+  .credit-box {
+    background: linear-gradient(135deg, #1f2c34, #182229);
+    border: 2px solid #00a884; border-radius: 16px;
+    padding: 20px 24px; display: inline-block;
+  }
+
+  .credit-box .credit-label {
+    color: #8696a0; font-size: 13px; margin-bottom: 4px;
+  }
+
+  .credit-box .credit-name {
+    color: #e9edef; font-size: 26px; font-weight: 700;
+  }
+
+  .credit-box .credit-emoji {
+    font-size: 28px; margin-top: 6px;
+  }
+
+  /* === SCORE POPUP === */
+  .score-popup {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0);
+    background: #005c4b; color: #fff; padding: 16px 28px; border-radius: 16px;
+    font-size: 20px; font-weight: 700; z-index: 500;
+    box-shadow: 0 6px 25px rgba(0,168,132,0.5);
+    transition: transform 0.3s ease-out;
+    pointer-events: none;
+  }
+
+  .score-popup.show { transform: translate(-50%, -50%) scale(1); }
+
+  /* === FIXED CREDIT BANNER === */
+  .credit-banner {
+    background: #182229;
+    border-top: 1px solid #2a3942;
+    text-align: center;
+    padding: 6px 10px;
+    position: sticky;
+    bottom: 0;
+    z-index: 50;
+  }
+
+  .credit-banner-inner {
+    color: #8696a0;
+    font-size: 12px;
+  }
+
+  .credit-banner-inner b {
+    color: #00a884;
+    font-size: 14px;
+  }
+
+  /* === PRINT === */
+  @media print {
+    body { background: #fff; }
+    .phone-frame { max-width: 100%; }
+    .emoji-toolbar, .my-emojis-bar { display: none !important; }
+    .chat-area { background: #fff; }
+    .message.received { background: #f0f0f0; color: #111; }
+    .message.sent { background: #dcf8c6; color: #111; }
+    .answer-option { background: #f8f8f8; color: #111; border-color: #ddd; }
+    .wa-topbar { background: #075e54; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAME MODAL -->
+<div class="name-modal" id="nameModal">
+  <div class="name-modal-box">
+    <div style="font-size:48px; margin-bottom:8px;">&#127838;&#127775;</div>
+    <h2>!ברוכים הבאים לשיעור פסח</h2>
+    <p>כיתה ה׳ — דף עבודה אינטראקטיבי<br>ענו על השאלות, צברו נקודות — ומי שמגיע ראשון ל-1000 מנצח!</p>
+    <input type="text" id="studentNameInput" placeholder="...הכנס/י את שמך" maxlength="20" autofocus>
+    <br>
+    <button onclick="enterChat()">&#127808; כניסה לקבוצה</button>
+    <div style="margin-top:20px; padding-top:14px; border-top:1px solid #2a3942;">
+      <div style="color:#8696a0; font-size:12px;">קרדיט לרעיון הנפלא</div>
+      <div style="color:#00a884; font-size:22px; font-weight:700;">&#127775; הלל שרייבר &#127775;</div>
+    </div>
+  </div>
+</div>
+
+<!-- SCORE POPUP -->
+<div class="score-popup" id="scorePopup"></div>
+
+<!-- LEADERBOARD -->
+<div class="leaderboard-overlay hidden" id="leaderboardOverlay">
+  <div class="leaderboard-box">
+    <h2>&#127942; טבלת המובילים</h2>
+    <div class="lb-subtitle">ראשון ל-1000 נקודות מנצח!</div>
+    <div class="lb-progress-bar">
+      <div class="lb-progress-fill" id="lbProgressFill" style="width:0%">
+        <span class="lb-progress-text" id="lbProgressText">0/1000</span>
+      </div>
+    </div>
+    <div id="lbWinnerBanner"></div>
+    <div id="lbEntries"></div>
+    <button class="lb-close-btn" onclick="closeLB()">&#10006; סגור</button>
+  </div>
+</div>
+
+<!-- PHONE -->
+<div class="phone-frame">
+
+  <!-- TOPBAR -->
+  <div class="wa-topbar">
+    <span class="back-arrow">&#8594;</span>
+    <div class="group-avatar">&#127838;</div>
+    <div class="group-info">
+      <div class="group-name">&#127775; חג הפסח — כיתה ה׳ &#127775;</div>
+      <div class="group-members" id="groupMembers">תלמידי כיתה ה׳, הרב שמשון</div>
+    </div>
+    <div class="score-badge" id="topScore">0 נק׳</div>
+    <button class="lb-btn-topbar" onclick="openLB()" title="טבלת מובילים">&#127942;</button>
+    <div class="topbar-icons">
+      <span>&#128249;</span>
+      <span>&#128222;</span>
+      <span>&#8942;</span>
+    </div>
+  </div>
+
+  <!-- CHAT -->
+  <div class="chat-area" id="chatArea"></div>
+
+  <!-- EMOJI TOOLBAR -->
+  <div class="emoji-toolbar">
+    <div class="emoji-panel" id="emojiPanel">
+      <div class="emoji-category-title">&#128522; חגיגי</div>
+      <div class="emoji-grid">
+        <button class="emoji-btn" onclick="addEmoji(this)">&#127881;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#127880;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#127942;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#127775;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#127808;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#128293;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#10024;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#127752;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#9728;&#65039;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#127774;</button>
+      </div>
+      <div class="emoji-category-title">&#127838; פסח</div>
+      <div class="emoji-grid">
+        <button class="emoji-btn" onclick="addEmoji(this)">&#127838;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#129347;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#127863;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#127860;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#128016;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#127754;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#127477;&#127473;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#128214;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#128367;&#65039;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#127796;</button>
+      </div>
+      <div class="emoji-category-title">&#128079; תגובות</div>
+      <div class="emoji-grid">
+        <button class="emoji-btn" onclick="addEmoji(this)">&#128079;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#128170;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#128077;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#128150;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#128588;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#128591;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#129321;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#128640;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#127800;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#129303;</button>
+      </div>
+      <div class="emoji-category-title">&#128522; פרצופים</div>
+      <div class="emoji-grid">
+        <button class="emoji-btn" onclick="addEmoji(this)">&#128522;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#128516;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#128525;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#129300;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#128526;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#128519;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#128521;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#128536;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#129488;</button>
+        <button class="emoji-btn" onclick="addEmoji(this)">&#128171;</button>
+      </div>
+    </div>
+    <div class="emoji-toolbar-top">
+      <button class="emoji-toggle-btn" onclick="toggleEmoji()" title="אימוג'ים">&#128522;</button>
+      <div class="msg-input-fake">&#128172; הוסף אימוג׳י...</div>
+      <div class="input-icons">
+        <span>&#128206;</span>
+        <span>&#128247;</span>
+      </div>
+      <button class="mic-btn" title="הקלטה">&#127908;</button>
+    </div>
+  </div>
+
+  <!-- FIXED CREDIT BANNER -->
+  <div class="credit-banner">
+    <div class="credit-banner-inner">&#127775; קרדיט לרעיון הנפלא <b>הלל שרייבר</b> &#127775;</div>
+  </div>
+
+</div>
+
+<script>
+// =============================================
+// STATE - per session (sessionStorage)
+// =============================================
+let studentName = '';
+let sessionId = '';
+let score = 0;
+let currentQ = 0;
+let answered = {};
+let busy = false;
+
+const chat = document.getElementById('chatArea');
+
+// =============================================
+// QUESTIONS DATA
+// =============================================
+const questions = [
+  {
+    num: 1, points: 10, emoji: '&#129300;',
+    text: 'מהו שם נוסף לחג הפסח שמופיע בתורה?',
+    type: 'mc',
+    options: ['חג האביב', 'חג המצות', 'חג החירות', 'כל התשובות נכונות'],
+    correct: 3,
+    feedbackOk: 'מעולה! &#127775; לחג הפסח שלושה שמות בתורה: חג הפסח, חג המצות וחג האביב. וגם נקרא "זמן חירותנו"!',
+    feedbackNo: 'לא בדיוק... &#129300; כל התשובות נכונות! לפסח יש כמה שמות: חג הפסח, חג המצות, חג האביב, וזמן חירותנו.'
+  },
+  {
+    num: 2, points: 10, emoji: '&#128214;',
+    text: 'כמה מכות הביא הקב״ה על המצרים?',
+    type: 'mc',
+    options: ['7 מכות', '10 מכות', '12 מכות', '5 מכות'],
+    correct: 1,
+    feedbackOk: 'נכון מאוד! &#128079; עשר מכות: דם, צפרדע, כינים, ערוב, דבר, שחין, ברד, ארבה, חושך ומכת בכורות.',
+    feedbackNo: 'אופס! &#128566; התשובה הנכונה היא 10 מכות. הסימן: דצ״ך עד״ש באח״ב.'
+  },
+  {
+    num: 3, points: 10, emoji: '&#127838;',
+    text: 'מדוע אוכלים מצה בפסח?',
+    type: 'mc',
+    options: ['כי המצרים אהבו מצה', 'כי הבצק לא הספיק לתפוח ביציאה ממצרים', 'כי משה רבנו ביקש', 'כי אין קמח בפסח'],
+    correct: 1,
+    feedbackOk: 'בדיוק! &#127838; בני ישראל יצאו בחיפזון ממצרים והבצק לא הספיק להחמיץ!',
+    feedbackNo: 'לא נכון... &#128528; אוכלים מצה כי הבצק לא הספיק לתפוח כשיצאו ממצרים בחיפזון.'
+  },
+  {
+    num: 4, points: 10, emoji: '&#128106;',
+    text: 'כמה בנים מוזכרים בהגדה של פסח?',
+    type: 'mc',
+    options: ['3 בנים', '4 בנים', '5 בנים', '2 בנים'],
+    correct: 1,
+    feedbackOk: 'מצוין! &#128218; ארבעת הבנים: חכם, רשע, תם ושאינו יודע לשאול. לכל אחד עונים בצורה שונה!',
+    feedbackNo: 'לא בדיוק... &#128527; ארבעה בנים: חכם, רשע, תם ושאינו יודע לשאול.'
+  },
+  {
+    num: 5, points: 10, emoji: '&#127796;',
+    text: 'מה היתה המכה האחרונה?',
+    type: 'mc',
+    options: ['חושך', 'ברד', 'מכת בכורות', 'ארבה'],
+    correct: 2,
+    feedbackOk: 'נכון! &#127796; מכת בכורות היתה המכה העשירית והאחרונה, ואחריה שילח פרעה את בני ישראל.',
+    feedbackNo: 'טעות קטנה... &#128533; המכה האחרונה היתה מכת בכורות — המכה העשירית.'
+  },
+  {
+    num: 6, points: 10, emoji: '&#127860;',
+    text: 'מה מסמל המרור בליל הסדר?',
+    type: 'mc',
+    options: ['את החירות של עם ישראל', 'את מרירות השעבוד במצרים', 'את הדרך הארוכה במדבר', 'את הים שנבקע'],
+    correct: 1,
+    feedbackOk: 'יפה מאוד! &#127807; המרור מסמל את מרירות חיי השעבוד של בני ישראל במצרים.',
+    feedbackNo: 'לא בדיוק... &#128532; המרור מסמל את מרירות השעבוד במצרים — את הקושי והסבל.'
+  },
+  {
+    num: 7, points: 10, emoji: '&#127754;',
+    text: 'מי שר את "שירת הים" אחרי קריעת ים סוף?',
+    type: 'mc',
+    options: ['אהרון', 'משה רבנו ובני ישראל', 'פרעה', 'יהושע בן נון'],
+    correct: 1,
+    feedbackOk: 'מדויק! &#127754; משה ובני ישראל שרו שירת הודיה לה׳ אחרי שעברו בים ביבשה.',
+    feedbackNo: 'לא נכון... &#127754; משה רבנו ובני ישראל שרו את שירת הים.'
+  },
+  {
+    num: 8, points: 15, emoji: '&#9997;&#65039;',
+    text: 'שאלה פתוחה: מנה את עשר המכות לפי הסדר (כמה שאתה זוכר!)',
+    type: 'open',
+    feedbackOk: 'תודה! &#128079; התשובה המלאה: דם, צפרדע, כינים, ערוב, דבר, שחין, ברד, ארבה, חושך, מכת בכורות. הסימן: דצ״ך עד״ש באח״ב'
+  },
+  {
+    num: 9, points: 10, emoji: '&#127477;&#127473;',
+    text: 'כמה ימים חוגגים את חג הפסח בארץ ישראל?',
+    type: 'mc',
+    options: ['5 ימים', '7 ימים', '8 ימים', '3 ימים'],
+    correct: 1,
+    feedbackOk: 'נכון! &#127477;&#127473; בארץ ישראל חוגגים 7 ימים, ובחו״ל 8 ימים.',
+    feedbackNo: 'טעות... &#127477;&#127473; בארץ ישראל חוגגים 7 ימים את הפסח.'
+  },
+  {
+    num: 10, points: 15, emoji: '&#128161;',
+    text: 'שאלה פתוחה: מדוע לדעתך חשוב לספר את סיפור יציאת מצרים בכל שנה מחדש?',
+    type: 'open',
+    feedbackOk: 'תשובה יפה! &#128150; חשוב לזכור: "בכל דור ודור חייב אדם לראות את עצמו כאילו הוא יצא ממצרים". הסיפור מחבר אותנו לשורשים שלנו! &#127808;'
+  }
+];
+
+const friendMessages = {
+  2: { sender: '&#128102; יוסי', text: 'וואו זה ממש מעניין! &#128170;', side: 'sent' },
+  4: { sender: '&#128103; שירה', text: 'את זה למדנו בשיעור שעבר! &#128522;', side: 'received' },
+  6: { sender: '&#128102; דניאל', text: 'אני אוהב את הנושא הזה &#128173;', side: 'sent' },
+  8: { sender: '&#128103; נועה', text: 'המורה, השאלות ממש כיפיות! &#128526;', side: 'received' },
+};
+
+const teacherInterjections = {
+  5: 'בואו נעלה רמה! &#128293;',
+  9: 'שאלה אחרונה! תנו הכל! &#128170;&#127942;',
+};
+
+// =============================================
+// SESSION ID — unique per tab
+// =============================================
+function generateId() {
+  return 'stu_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+}
+
+// =============================================
+// ENTER CHAT
+// =============================================
+function enterChat() {
+  const input = document.getElementById('studentNameInput');
+  const name = input.value.trim();
+  if (!name) { input.style.borderColor = '#ff6b6b'; return; }
+  studentName = name;
+  sessionId = generateId();
+  document.getElementById('nameModal').classList.add('hidden');
+  document.getElementById('groupMembers').textContent = 'תלמידי כיתה ה׳, הרב שמשון, ' + name;
+
+  updateLeaderboard();
+  startChat();
+}
+
+document.getElementById('studentNameInput').addEventListener('keypress', e => {
+  if (e.key === 'Enter') enterChat();
+});
+
+// =============================================
+// RENDERING HELPERS
+// =============================================
+function now() {
+  const d = new Date();
+  return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+}
+
+function addSystemMsg(text) {
+  const div = document.createElement('div');
+  div.className = 'system-msg';
+  div.innerHTML = '<span>' + text + '</span>';
+  chat.appendChild(div);
+  addSpacer();
+}
+
+function addDateBadge() {
+  const div = document.createElement('div');
+  div.className = 'date-badge';
+  div.innerHTML = '<span>&#128197; היום</span>';
+  chat.appendChild(div);
+}
+
+function addSpacer() {
+  const s = document.createElement('div');
+  s.className = 'spacer';
+  chat.appendChild(s);
+}
+
+function addMessage(sender, text, side, time) {
+  const div = document.createElement('div');
+  div.className = 'message ' + side + ' clearfix';
+  div.innerHTML =
+    '<span class="sender">' + sender + '</span>' +
+    '<div class="msg-text">' + text + '</div>' +
+    '<div class="msg-time">' + (time || now()) + ' <span class="read-ticks">&#10003;&#10003;</span></div>';
+  chat.appendChild(div);
+  addSpacer();
+  scrollDown();
+}
+
+function showTyping() {
+  const div = document.createElement('div');
+  div.className = 'typing-indicator show';
+  div.id = 'typingBubble';
+  div.innerHTML =
+    '<span class="sender">&#128104;&#8205;&#127979; הרב שמשון</span>' +
+    '<div class="typing-dots"><span></span><span></span><span></span></div>';
+  chat.appendChild(div);
+  scrollDown();
+}
+
+function hideTyping() {
+  const el = document.getElementById('typingBubble');
+  if (el) el.remove();
+}
+
+function addStudentMsg(text) {
+  addMessage('&#128100; ' + studentName, text, 'sent');
+}
+
+function addTeacherMsg(text, time) {
+  addMessage('&#128104;&#8205;&#127979; הרב שמשון', text, 'received', time);
+}
+
+function scrollDown() {
+  setTimeout(() => chat.scrollTop = chat.scrollHeight, 50);
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// =============================================
+// SHOW QUESTION
+// =============================================
+async function showQuestion(idx) {
+  if (idx >= questions.length) {
+    await showFinalScore();
+    return;
+  }
+
+  busy = true;
+  const q = questions[idx];
+  currentQ = idx;
+
+  // Maybe show friend message before
+  if (friendMessages[q.num]) {
+    const fm = friendMessages[q.num];
+    await delay(600);
+    addMessage(fm.sender, fm.text, fm.side);
+    await delay(500);
+  }
+
+  // Maybe teacher interjection
+  if (teacherInterjections[q.num]) {
+    showTyping(); await delay(800); hideTyping();
+    addTeacherMsg(teacherInterjections[q.num]);
+    await delay(600);
+  }
+
+  // Typing indicator
+  showTyping();
+  await delay(1200);
+  hideTyping();
+
+  // Question message
+  const qDiv = document.createElement('div');
+  qDiv.className = 'message received clearfix';
+  qDiv.innerHTML =
+    '<span class="sender">&#128104;&#8205;&#127979; הרב שמשון</span>' +
+    '<div class="msg-text">' +
+    '<span class="q-number">שאלה ' + q.num + '</span> ' +
+    '<span class="q-points">' + q.points + ' נק׳</span><br>' +
+    '<span class="q-emoji">' + q.emoji + '</span> ' + q.text +
+    '</div>' +
+    '<div class="msg-time">' + now() + ' <span class="read-ticks">&#10003;&#10003;</span></div>';
+  chat.appendChild(qDiv);
+  addSpacer();
+  scrollDown();
+
+  await delay(300);
+
+  // Options or open area
+  if (q.type === 'mc') {
+    const optDiv = document.createElement('div');
+    optDiv.className = 'answer-options clearfix';
+    optDiv.id = 'opts_' + idx;
+    const letters = ['\u05D0', '\u05D1', '\u05D2', '\u05D3'];
+    q.options.forEach((opt, i) => {
+      const btn = document.createElement('div');
+      btn.className = 'answer-option';
+      btn.innerHTML =
+        '<div class="option-circle">' + letters[i] + '</div><span>' + opt + '</span>';
+      btn.onclick = () => handleMcAnswer(idx, i, btn);
+      optDiv.appendChild(btn);
+    });
+    chat.appendChild(optDiv);
+    addSpacer();
+  } else {
+    const areaDiv = document.createElement('div');
+    areaDiv.className = 'open-answer-area clearfix';
+    areaDiv.innerHTML =
+      '<textarea id="openText_' + idx + '" placeholder="&#128172; כתוב/י את התשובה כאן..." rows="3"></textarea>' +
+      '<button class="open-answer-btn" id="openBtn_' + idx + '">&#128228; שלח תשובה</button>';
+    chat.appendChild(areaDiv);
+    addSpacer();
+    document.getElementById('openBtn_' + idx).onclick = () => handleOpenAnswer(idx);
+  }
+
+  scrollDown();
+  busy = false;
+}
+
+// =============================================
+// MC ANSWER
+// =============================================
+async function handleMcAnswer(qIdx, choiceIdx, el) {
+  if (answered[qIdx] || busy) return;
+  answered[qIdx] = true;
+  busy = true;
+
+  const q = questions[qIdx];
+  const isCorrect = choiceIdx === q.correct;
+
+  // Disable all options
+  const opts = document.querySelectorAll('#opts_' + qIdx + ' .answer-option');
+  opts.forEach(o => o.classList.add('disabled'));
+
+  // Show student's "typed" message
+  addStudentMsg(q.options[choiceIdx]);
+
+  if (isCorrect) {
+    el.classList.add('correct');
+    el.querySelector('.option-circle').textContent = '✓';
+    score += q.points;
+  } else {
+    el.classList.add('wrong');
+    el.querySelector('.option-circle').textContent = '✗';
+    opts[q.correct].classList.add('correct');
+    opts[q.correct].querySelector('.option-circle').textContent = '✓';
+  }
+
+  updateScoreBadge();
+  updateLeaderboard();
+
+  if (isCorrect) showScorePopup('+' + q.points + ' &#127775;');
+
+  // Teacher typing & feedback
+  await delay(500);
+  showTyping();
+  await delay(1200);
+  hideTyping();
+
+  addTeacherMsg(isCorrect ? q.feedbackOk : q.feedbackNo);
+
+  busy = false;
+
+  // Next question
+  await delay(1000);
+  showQuestion(qIdx + 1);
+}
+
+// =============================================
+// OPEN ANSWER
+// =============================================
+async function handleOpenAnswer(qIdx) {
+  const text = document.getElementById('openText_' + qIdx).value.trim();
+  if (!text || answered[qIdx] || busy) return;
+  answered[qIdx] = true;
+  busy = true;
+
+  const q = questions[qIdx];
+  const ta = document.getElementById('openText_' + qIdx);
+  const btn = document.getElementById('openBtn_' + qIdx);
+  ta.disabled = true;
+  ta.style.borderColor = '#00a884';
+  btn.disabled = true;
+  btn.textContent = '✓ נשלח!';
+
+  addStudentMsg(text);
+  score += q.points;
+  updateScoreBadge();
+  updateLeaderboard();
+  showScorePopup('+' + q.points + ' &#127775;');
+
+  await delay(500);
+  showTyping();
+  await delay(1200);
+  hideTyping();
+
+  addTeacherMsg(q.feedbackOk);
+
+  busy = false;
+  await delay(1000);
+  showQuestion(qIdx + 1);
+}
+
+// =============================================
+// FINAL SCORE
+// =============================================
+async function showFinalScore() {
+  await delay(600);
+  showTyping(); await delay(1000); hideTyping();
+
+  let stars, detail;
+  if (score >= 90) { stars = '⭐⭐⭐⭐⭐'; detail = 'מדהים! ידע מצוין בנושא פסח!'; }
+  else if (score >= 70) { stars = '⭐⭐⭐⭐'; detail = 'כל הכבוד! עבודה טובה מאוד!'; }
+  else if (score >= 50) { stars = '⭐⭐⭐'; detail = 'יפה! יש מקום לשיפור קטן.'; }
+  else if (score >= 30) { stars = '⭐⭐'; detail = 'לא רע, כדאי לחזור על החומר.'; }
+  else { stars = '⭐'; detail = 'צריך ללמוד עוד קצת, אל תוותר/י!'; }
+
+  addTeacherMsg(
+    'כל הכבוד ' + studentName + '! &#127881; סיימת את כל השאלות!<br><br>' +
+    '<b style="font-size:24px;">' + score + '/100</b><br>' +
+    '<span style="font-size:22px;">' + stars + '</span><br>' +
+    detail + '<br><br>הנקודות נוספו לטבלת המובילים! &#127942;'
+  );
+
+  // Restart button
+  const restDiv = document.createElement('div');
+  restDiv.className = 'system-msg';
+  restDiv.innerHTML = '<button class="restart-btn" onclick="restartQuiz()">&#128260; התחל מהתחלה (סיבוב נוסף)</button>';
+  chat.appendChild(restDiv);
+  addSpacer();
+
+  // Credit
+  const credDiv = document.createElement('div');
+  credDiv.className = 'credit';
+  credDiv.innerHTML =
+    '<div class="credit-box">' +
+    '<div class="credit-label">קרדיט לרעיון הנפלא</div>' +
+    '<div class="credit-name">הלל שרייבר</div>' +
+    '<div class="credit-emoji">&#127775;&#127838;&#127808;</div>' +
+    '</div>';
+  chat.appendChild(credDiv);
+
+  scrollDown();
+}
+
+// =============================================
+// RESTART
+// =============================================
+function restartQuiz() {
+  answered = {};
+  currentQ = 0;
+  chat.innerHTML = '';
+  startChat();
+}
+
+// =============================================
+// START CHAT
+// =============================================
+async function startChat() {
+  addDateBadge();
+  addSpacer();
+  addSystemMsg('&#128274; ההודעות מוצפנות מקצה לקצה');
+  addSystemMsg('הרב שמשון יצרה את הקבוצה "&#127775; חג הפסח — כיתה ה׳ &#127775;"');
+
+  await delay(400);
+  showTyping(); await delay(1000); hideTyping();
+
+  addTeacherMsg(
+    'שלום ' + studentName + '! &#128075;<br>' +
+    'ברוך/ה הבא/ה לשיעור על חג הפסח! &#127838;<br>' +
+    'אני אשאל שאלות ואת/ה תענה. על כל תשובה נכונה תקבל/י נקודות!<br>' +
+    'מי שמגיע ראשון ל-1000 נקודות — מנצח! &#127942;'
+  );
+
+  await delay(600);
+  showTyping(); await delay(700); hideTyping();
+  addTeacherMsg('יאללה, מתחילים! &#128293;&#128293;&#128293;');
+
+  await delay(800);
+  showQuestion(0);
+}
+
+// =============================================
+// SCORE BADGE
+// =============================================
+function updateScoreBadge() {
+  document.getElementById('topScore').textContent = score + ' נק׳';
+}
+
+function showScorePopup(text) {
+  const popup = document.getElementById('scorePopup');
+  popup.innerHTML = text;
+  popup.classList.add('show');
+  setTimeout(() => popup.classList.remove('show'), 1200);
+}
+
+// =============================================
+// LEADERBOARD — shared via localStorage
+// =============================================
+const LB_KEY = 'pesach_leaderboard';
+const LB_WINNER_KEY = 'pesach_winner';
+
+function getLeaderboard() {
+  try { return JSON.parse(localStorage.getItem(LB_KEY) || '{}'); } catch { return {}; }
+}
+
+function updateLeaderboard() {
+  const lb = getLeaderboard();
+  lb[sessionId] = { name: studentName, score: score, time: Date.now() };
+  localStorage.setItem(LB_KEY, JSON.stringify(lb));
+
+  // Check winner
+  if (score >= 1000 && !localStorage.getItem(LB_WINNER_KEY)) {
+    localStorage.setItem(LB_WINNER_KEY, JSON.stringify({ name: studentName, id: sessionId }));
+  }
+}
+
+function renderLeaderboard() {
+  const lb = getLeaderboard();
+  const entries = Object.entries(lb)
+    .map(([id, d]) => ({ id, ...d }))
+    .sort((a, b) => b.score - a.score);
+
+  const container = document.getElementById('lbEntries');
+  container.innerHTML = '';
+
+  const medals = ['&#129351;', '&#129352;', '&#129353;'];
+
+  entries.forEach((e, i) => {
+    const div = document.createElement('div');
+    div.className = 'lb-entry' + (e.id === sessionId ? ' me' : '');
+    div.innerHTML =
+      '<div class="lb-rank">' + (i < 3 ? medals[i] : (i + 1)) + '</div>' +
+      '<div class="lb-name">' + e.name + (e.id === sessionId ? ' <span class="me-tag">(את/ה)</span>' : '') + '</div>' +
+      '<div class="lb-score-num">' + e.score + '</div>';
+    container.appendChild(div);
+  });
+
+  // My progress bar
+  const myScore = lb[sessionId]?.score || 0;
+  const pct = Math.min(100, (myScore / 1000) * 100);
+  document.getElementById('lbProgressFill').style.width = pct + '%';
+  document.getElementById('lbProgressText').textContent = myScore + '/1000';
+
+  // Winner?
+  const winnerBanner = document.getElementById('lbWinnerBanner');
+  try {
+    const winner = JSON.parse(localStorage.getItem(LB_WINNER_KEY));
+    if (winner) {
+      winnerBanner.className = 'lb-winner-banner';
+      winnerBanner.innerHTML = '&#127942;&#127881; ' + winner.name + ' הגיע/ה ל-1000 וניצח/ה! &#127881;&#127942;';
+    } else {
+      winnerBanner.innerHTML = '';
+      winnerBanner.className = '';
+    }
+  } catch {
+    winnerBanner.innerHTML = '';
+  }
+}
+
+function openLB() {
+  renderLeaderboard();
+  document.getElementById('leaderboardOverlay').classList.remove('hidden');
+}
+
+function closeLB() {
+  document.getElementById('leaderboardOverlay').classList.add('hidden');
+}
+
+// Listen for other tabs' updates
+window.addEventListener('storage', (e) => {
+  if (e.key === LB_KEY || e.key === LB_WINNER_KEY) {
+    if (!document.getElementById('leaderboardOverlay').classList.contains('hidden')) {
+      renderLeaderboard();
+    }
+  }
+});
+
+// =============================================
+// EMOJIS — per student (in chat)
+// =============================================
+function toggleEmoji() {
+  document.getElementById('emojiPanel').classList.toggle('open');
+}
+
+function addEmoji(btn) {
+  if (!studentName) return;
+  const emoji = btn.textContent.trim();
+
+  // Add as a message in chat
+  const div = document.createElement('div');
+  div.className = 'message sent clearfix';
+  div.innerHTML =
+    '<span class="sender">&#128100; ' + studentName + '</span>' +
+    '<div class="msg-text" style="font-size:32px; text-align:center;">' + emoji + '</div>' +
+    '<div class="msg-time">' + now() + ' <span class="read-ticks">&#10003;&#10003;</span></div>';
+  chat.appendChild(div);
+  addSpacer();
+  scrollDown();
+
+  // Visual feedback on button
+  btn.style.transform = 'scale(1.5)';
+  setTimeout(() => btn.style.transform = '', 200);
+
+  // Close panel
+  document.getElementById('emojiPanel').classList.remove('open');
+}
+
+// =============================================
+// INIT
+// =============================================
+</script>
+</body>
+</html>
