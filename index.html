@@ -1368,7 +1368,13 @@ async function fetchBlob() {
       const content = gist.files['leaderboard.json']?.content;
       if (content) {
         const data = JSON.parse(content);
-        if (data && typeof data === 'object') allPlayers = data;
+        if (data && typeof data === 'object') {
+          allPlayers = data;
+          // Always keep my local score as the truth (prevents stale cloud data from overwriting)
+          if (sessionId) {
+            allPlayers[sessionId] = { name: studentName, score: score, lastSeen: Date.now() };
+          }
+        }
       }
     }
   } catch(e) { console.log('fetch err', e); }
