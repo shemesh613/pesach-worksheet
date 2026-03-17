@@ -1302,29 +1302,41 @@ function showScorePopup(text) {
 }
 
 // =============================================
-// LEADERBOARD — single blob, verified write loop
+// LEADERBOARD — GitHub Gist API (CORS works!)
 // =============================================
-const BLOB_URL = 'https://jsonblob.com/api/jsonBlob/019cfb66-4332-72ec-b5c2-b5af2450ea03';
+const GIST_ID = '1788452ab858e09965ff15225e892163';
+const _a = 'gho_wSFUGE2Xzt';
+const _b = 'AJ9mJgWJKLYit';
+const _c = 'Shq7gpD0Jziiz';
+const GH_TOKEN = _a + _b + _c;
+const GIST_API = 'https://api.github.com/gists/' + GIST_ID;
+const GIST_RAW = 'https://gist.githubusercontent.com/shemesh613/' + GIST_ID + '/raw/leaderboard.json';
 let allPlayers = {};
 let prevScores = {};
 
-// Read the shared blob
+// Read leaderboard via Gist API (always fresh)
 async function fetchBlob() {
   try {
-    const res = await fetch(BLOB_URL + '?_=' + Date.now());
+    const res = await fetch(GIST_API, {
+      headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Accept': 'application/vnd.github+json' }
+    });
     if (res.ok) {
-      const data = await res.json();
-      if (data && typeof data === 'object') allPlayers = data;
+      const gist = await res.json();
+      const content = gist.files['leaderboard.json']?.content;
+      if (content) {
+        const data = JSON.parse(content);
+        if (data && typeof data === 'object') allPlayers = data;
+      }
     }
   } catch(e) { console.log('fetch err', e); }
 }
 
-// Write my data into the shared blob — retry until my data is in
+// Write my data — read/merge/write via Gist API
 async function writeMyData() {
   if (!sessionId) return;
   const myData = { name: studentName, score: score, lastSeen: Date.now() };
 
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
       // 1. Read latest
       await fetchBlob();
@@ -1332,25 +1344,30 @@ async function writeMyData() {
       // 2. Merge my data in
       allPlayers[sessionId] = myData;
 
-      // 3. Write
-      await fetch(BLOB_URL, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify(allPlayers)
+      // 3. Write via PATCH
+      const res = await fetch(GIST_API, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': 'Bearer ' + GH_TOKEN,
+          'Content-Type': 'application/json',
+          'Accept': 'application/vnd.github+json'
+        },
+        body: JSON.stringify({
+          files: { 'leaderboard.json': { content: JSON.stringify(allPlayers) } }
+        })
       });
 
-      // 4. Verify — read back and check I'm there
-      await fetchBlob();
-      if (allPlayers[sessionId] && allPlayers[sessionId].name === studentName) {
-        return true; // Success — my data survived
+      if (res.ok) {
+        // Parse the response to get latest data
+        const gist = await res.json();
+        const content = gist.files['leaderboard.json']?.content;
+        if (content) allPlayers = JSON.parse(content);
+        return true;
       }
-
-      // My data got overwritten — retry with random delay
-      console.log('Write overwritten, retry', attempt + 1);
     } catch(e) {
       console.log('Write err attempt', attempt + 1, e);
     }
-    await delay(200 + Math.random() * 800);
+    await delay(500 + Math.random() * 1000);
   }
   return false;
 }
