@@ -938,18 +938,11 @@ async function enterChat() {
   studentName = name;
   sessionId = generateId();
 
-  // Show loading state
-  const btn = input.nextElementSibling?.nextElementSibling;
-  if (btn) btn.textContent = '...מתחבר';
-
-  // Create personal blob + register in registry
-  const created = await createPersonalBlob();
-  if (created) {
-    await registerInRegistry();
-  }
-
   document.getElementById('nameModal').classList.add('hidden');
   document.getElementById('groupMembers').textContent = 'מתחבר...';
+
+  // Register immediately with verify loop
+  await writeMyData();
 
   showFloatingBtn();
   startLivePolling();
@@ -1309,114 +1302,71 @@ function showScorePopup(text) {
 }
 
 // =============================================
-// LEADERBOARD — per-student blobs (no overwrites)
-// Each student writes ONLY to their own blob.
-// A registry blob maps session IDs to blob URLs.
-// Reading = fetch registry + fetch all personal blobs.
+// LEADERBOARD — single blob, verified write loop
 // =============================================
-const REGISTRY_URL = 'https://jsonblob.com/api/jsonBlob/019cfb66-4332-72ec-b5c2-b5af2450ea03';
-const JB_BASE = 'https://jsonblob.com/api/jsonBlob/';
-let myBlobId = null;
-let allPlayers = {}; // { name, score, lastSeen } per player
+const BLOB_URL = 'https://jsonblob.com/api/jsonBlob/019cfb66-4332-72ec-b5c2-b5af2450ea03';
+let allPlayers = {};
 let prevScores = {};
 
-// --- Step 1: Create personal blob on enter ---
-async function createPersonalBlob() {
+// Read the shared blob
+async function fetchBlob() {
   try {
-    const res = await fetch(JB_BASE.replace(/\/+$/, ''), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ name: studentName, score: 0, lastSeen: Date.now() })
+    const res = await fetch(BLOB_URL, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store'
     });
-    const blobId = res.headers.get('X-jsonblob-id') || res.headers.get('Location')?.split('/').pop();
-    if (blobId) {
-      myBlobId = blobId;
-      return true;
+    if (res.ok) {
+      const data = await res.json();
+      if (data && typeof data === 'object') allPlayers = data;
     }
-  } catch(e) { console.log('Create blob error:', e); }
-  return false;
+  } catch(e) { console.log('fetch err', e); }
 }
 
-// --- Step 2: Register in the registry ---
-async function registerInRegistry() {
-  for (let attempt = 0; attempt < 4; attempt++) {
+// Write my data into the shared blob — retry until my data is in
+async function writeMyData() {
+  if (!sessionId) return;
+  const myData = { name: studentName, score: score, lastSeen: Date.now() };
+
+  for (let attempt = 0; attempt < 5; attempt++) {
     try {
-      const res = await fetch(REGISTRY_URL + '?_t=' + Date.now(), {
-        headers: { 'Accept': 'application/json' }, cache: 'no-store'
-      });
-      const registry = res.ok ? await res.json() : {};
+      // 1. Read latest
+      await fetchBlob();
 
-      // Add myself
-      registry[sessionId] = { blobId: myBlobId, name: studentName };
+      // 2. Merge my data in
+      allPlayers[sessionId] = myData;
 
-      const writeRes = await fetch(REGISTRY_URL, {
+      // 3. Write
+      await fetch(BLOB_URL, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        body: JSON.stringify(registry)
+        body: JSON.stringify(allPlayers)
       });
 
-      if (writeRes.ok) {
-        // Verify my entry survived
-        const verifyRes = await fetch(REGISTRY_URL + '?_t=' + Date.now(), {
-          headers: { 'Accept': 'application/json' }, cache: 'no-store'
-        });
-        const verified = verifyRes.ok ? await verifyRes.json() : {};
-        if (verified[sessionId]) return true;
+      // 4. Verify — read back and check I'm there
+      await fetchBlob();
+      if (allPlayers[sessionId] && allPlayers[sessionId].name === studentName) {
+        return true; // Success — my data survived
       }
-    } catch(e) {}
-    await delay(500 + Math.random() * 1000);
+
+      // My data got overwritten — retry with random delay
+      console.log('Write overwritten, retry', attempt + 1);
+    } catch(e) {
+      console.log('Write err attempt', attempt + 1, e);
+    }
+    await delay(200 + Math.random() * 800);
   }
   return false;
 }
 
-// --- Step 3: Write to MY blob only (score + heartbeat) ---
-async function writeMyBlob() {
-  if (!myBlobId) return;
-  try {
-    await fetch(JB_BASE + myBlobId, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ name: studentName, score: score, lastSeen: Date.now() })
-    });
-  } catch(e) { console.log('Write my blob error:', e); }
-}
-
-// --- Step 4: Read ALL players (registry + all blobs) ---
-async function fetchAllPlayers() {
-  try {
-    // Fetch registry
-    const res = await fetch(REGISTRY_URL + '?_t=' + Date.now(), {
-      headers: { 'Accept': 'application/json' }, cache: 'no-store'
-    });
-    if (!res.ok) return;
-    const registry = await res.json();
-    if (!registry || typeof registry !== 'object') return;
-
-    // Fetch all personal blobs in parallel
-    const entries = Object.entries(registry);
-    const fetches = entries.map(async ([id, info]) => {
-      try {
-        const r = await fetch(JB_BASE + info.blobId + '?_t=' + Date.now(), {
-          headers: { 'Accept': 'application/json' }, cache: 'no-store'
-        });
-        if (r.ok) {
-          const data = await r.json();
-          return { id, name: data.name || info.name, score: data.score || 0, lastSeen: data.lastSeen || 0 };
-        }
-      } catch(e) {}
-      return { id, name: info.name, score: 0, lastSeen: 0 };
-    });
-
-    const results = await Promise.all(fetches);
-    allPlayers = {};
-    results.forEach(p => { allPlayers[p.id] = p; });
-  } catch(e) { console.log('Fetch all error:', e); }
-}
-
-// --- Update leaderboard (called after answering) ---
 async function updateLeaderboard() {
-  await writeMyBlob();
+  await writeMyData();
+  refreshUI();
+}
+
+function refreshUI() {
   refreshTickerFromCache();
+  updateOnlineMembers();
 }
 
 // --- Online members in topbar ---
@@ -1424,7 +1374,7 @@ function updateOnlineMembers() {
   const el = document.getElementById('groupMembers');
   if (!el) return;
   const nowMs = Date.now();
-  const ONLINE_TIMEOUT = 25000;
+  const ONLINE_TIMEOUT = 30000;
   const onlineNames = [];
   const offlineNames = [];
 
@@ -1436,7 +1386,7 @@ function updateOnlineMembers() {
   });
 
   let text = '';
-  if (onlineNames.length > 0) text += '\u{1F7E2} מחוברים: ' + onlineNames.join(', ');
+  if (onlineNames.length > 0) text += '\u{1F7E2} מחוברים (' + onlineNames.length + '): ' + onlineNames.join(', ');
   if (offlineNames.length > 0) {
     if (text) text += ' | ';
     text += '\u26AA ' + offlineNames.join(', ');
@@ -1445,7 +1395,7 @@ function updateOnlineMembers() {
   el.textContent = text;
 }
 
-// --- Render ticker from allPlayers ---
+// --- Render ticker ---
 function refreshTickerFromCache() {
   const entries = Object.entries(allPlayers)
     .map(([id, d]) => ({ id, ...d }))
@@ -1456,7 +1406,7 @@ function refreshTickerFromCache() {
   scroll.innerHTML = '';
 
   const nowMs = Date.now();
-  const ONLINE_TIMEOUT = 25000;
+  const ONLINE_TIMEOUT = 30000;
   const medals = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
 
   entries.forEach((e, i) => {
@@ -1496,8 +1446,8 @@ function setSyncStatus(text, active) {
 
 async function renderLeaderboard() {
   setSyncStatus('&#8987; טוען...', true);
-  await fetchAllPlayers();
-  setSyncStatus('&#128504; מסונכרן', false);
+  await fetchBlob();
+  setSyncStatus('&#128504; מסונכרן (' + Object.keys(allPlayers).length + ' משתתפים)', false);
 
   const entries = Object.entries(allPlayers)
     .map(([id, d]) => ({ id, ...d }))
@@ -1507,12 +1457,12 @@ async function renderLeaderboard() {
   container.innerHTML = '';
 
   if (entries.length === 0) {
-    container.innerHTML = '<div class="lb-empty">&#128566; עדיין אין משתתפים. תהיה הראשון!</div>';
+    container.innerHTML = '<div class="lb-empty">&#128566; עדיין אין משתתפים</div>';
     return;
   }
 
   const nowMs = Date.now();
-  const ONLINE_TIMEOUT = 25000;
+  const ONLINE_TIMEOUT = 30000;
   const medals = ['&#129351;', '&#129352;', '&#129353;'];
 
   entries.forEach((e, i) => {
@@ -1557,12 +1507,16 @@ async function refreshLB() {
   await renderLeaderboard();
 }
 
-// === LIVE POLLING: fetch everyone + write heartbeat every 7s ===
+// === LIVE POLLING: heartbeat (write) + read everyone ===
 async function liveTickerPoll() {
-  await writeMyBlob(); // heartbeat + score
-  await fetchAllPlayers(); // read everyone
-  refreshTickerFromCache();
-  updateOnlineMembers();
+  // Write my heartbeat + score (with verify)
+  await writeMyData();
+
+  // Read everyone
+  await fetchBlob();
+  refreshUI();
+
+  // Update full LB if open
   if (!document.getElementById('leaderboardOverlay').classList.contains('hidden')) {
     renderLeaderboard();
   }
@@ -1571,7 +1525,7 @@ async function liveTickerPoll() {
 let tickerInterval = null;
 function startLivePolling() {
   liveTickerPoll();
-  tickerInterval = setInterval(liveTickerPoll, 7000);
+  tickerInterval = setInterval(liveTickerPoll, 5000);
 }
 
 // =============================================
