@@ -1314,11 +1314,12 @@ const GIST_RAW = 'https://gist.githubusercontent.com/shemesh613/' + GIST_ID + '/
 let allPlayers = {};
 let prevScores = {};
 
-// Read leaderboard via Gist API (always fresh)
+// Read leaderboard via Gist API (always fresh, no cache)
 async function fetchBlob() {
   try {
-    const res = await fetch(GIST_API, {
-      headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Accept': 'application/vnd.github+json' }
+    const res = await fetch(GIST_API + '?_=' + Date.now(), {
+      headers: { 'Authorization': 'Bearer ' + GH_TOKEN, 'Accept': 'application/vnd.github+json' },
+      cache: 'no-store'
     });
     if (res.ok) {
       const gist = await res.json();
@@ -1520,19 +1521,70 @@ async function refreshLB() {
   await renderLeaderboard();
 }
 
-// === LIVE POLLING: heartbeat (write) + read everyone ===
-async function liveTickerPoll() {
-  // Write my heartbeat + score (with verify)
-  await writeMyData();
+// === LIVE POLLING ===
+let writeCounter = 0;
 
-  // Read everyone
-  await fetchBlob();
+async function liveTickerPoll() {
+  writeCounter++;
+
+  // Write heartbeat every 3rd poll (15 sec) to reduce race conditions
+  // But always write immediately after score changes (handled in updateLeaderboard)
+  if (writeCounter % 3 === 0) {
+    await writeMyData();
+  } else {
+    // Just read — no write
+    await fetchBlob();
+  }
+
   refreshUI();
 
-  // Update full LB if open
   if (!document.getElementById('leaderboardOverlay').classList.contains('hidden')) {
-    renderLeaderboard();
+    // renderLeaderboard doesn't re-fetch since we just did
+    renderLeaderboardFromCache();
   }
+}
+
+// Render leaderboard from already-fetched data (no extra API call)
+function renderLeaderboardFromCache() {
+  const entries = Object.entries(allPlayers)
+    .map(([id, d]) => ({ id, ...d }))
+    .sort((a, b) => b.score - a.score);
+
+  const container = document.getElementById('lbEntries');
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (entries.length === 0) {
+    container.innerHTML = '<div class="lb-empty">&#128566; עדיין אין משתתפים</div>';
+    return;
+  }
+
+  const nowMs = Date.now();
+  const ONLINE_TIMEOUT = 30000;
+  const medals = ['&#129351;', '&#129352;', '&#129353;'];
+
+  entries.forEach((e, i) => {
+    const div = document.createElement('div');
+    let cls = 'lb-entry';
+    if (e.id === sessionId) cls += ' me';
+    if (i === 0 && entries.length > 1) cls += ' first';
+    div.className = cls;
+
+    const isOnline = e.lastSeen && (nowMs - e.lastSeen) < ONLINE_TIMEOUT;
+    const statusDot = isOnline
+      ? '<span style="color:#4ade80;font-size:10px;">&#11044;</span> '
+      : '<span style="color:#8696a0;font-size:10px;">&#11044;</span> ';
+
+    div.innerHTML =
+      '<div class="lb-rank">' + (i < 3 ? medals[i] : (i + 1)) + '</div>' +
+      '<div class="lb-name">' + statusDot + e.name + (e.id === sessionId ? ' <span class="me-tag">(זה אני!)</span>' : '') + '</div>' +
+      '<div class="lb-score-num">' + e.score + ' נק׳</div>';
+    container.appendChild(div);
+  });
+
+  setSyncStatus('&#128504; מסונכרן (' + entries.length + ' משתתפים)', false);
+  const floatingBadge = document.getElementById('floatingLbCount');
+  if (floatingBadge) floatingBadge.textContent = entries.length;
 }
 
 let tickerInterval = null;
