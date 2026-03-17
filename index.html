@@ -787,6 +787,13 @@ let currentQ = 0;
 let answered = {};
 let busy = false;
 
+// Sanitize HTML to prevent XSS
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
 const chat = document.getElementById('chatArea');
 
 // =============================================
@@ -1053,7 +1060,7 @@ function hideTyping() {
 }
 
 function addStudentMsg(text) {
-  addMessage('&#128100; ' + studentName, text, 'sent');
+  addMessage('&#128100; ' + esc(studentName), text, 'sent');
 }
 
 function addTeacherMsg(text, time) {
@@ -1257,16 +1264,18 @@ async function showFinalScore() {
   await delay(600);
   showTyping(); await delay(1000); hideTyping();
 
+  const maxScore = 355;
+  const pct = Math.round((score / maxScore) * 100);
   let stars, detail;
-  if (score >= 90) { stars = '⭐⭐⭐⭐⭐'; detail = 'מדהים! ידע מצוין בנושא פסח!'; }
-  else if (score >= 70) { stars = '⭐⭐⭐⭐'; detail = 'כל הכבוד! עבודה טובה מאוד!'; }
-  else if (score >= 50) { stars = '⭐⭐⭐'; detail = 'יפה! יש מקום לשיפור קטן.'; }
-  else if (score >= 30) { stars = '⭐⭐'; detail = 'לא רע, כדאי לחזור על החומר.'; }
+  if (pct >= 90) { stars = '⭐⭐⭐⭐⭐'; detail = 'מדהים! ידע מצוין בנושא פסח!'; }
+  else if (pct >= 70) { stars = '⭐⭐⭐⭐'; detail = 'כל הכבוד! עבודה טובה מאוד!'; }
+  else if (pct >= 50) { stars = '⭐⭐⭐'; detail = 'יפה! יש מקום לשיפור קטן.'; }
+  else if (pct >= 30) { stars = '⭐⭐'; detail = 'לא רע, כדאי לחזור על החומר.'; }
   else { stars = '⭐'; detail = 'צריך ללמוד עוד קצת, אל תוותר/י!'; }
 
   addTeacherMsg(
-    'כל הכבוד ' + studentName + '! &#127881; סיימת את כל השאלות!<br><br>' +
-    '<b style="font-size:24px;">' + score + '/100</b><br>' +
+    'כל הכבוד ' + esc(studentName) + '! &#127881; סיימת את כל השאלות!<br><br>' +
+    '<b style="font-size:24px;">' + score + '/' + maxScore + '</b> (' + pct + '%)<br>' +
     '<span style="font-size:22px;">' + stars + '</span><br>' +
     detail + '<br><br>הנקודות נוספו לטבלת המובילים! &#127942;'
   );
@@ -1298,6 +1307,7 @@ async function showFinalScore() {
 function restartQuiz() {
   answered = {};
   currentQ = 0;
+  // score accumulates across rounds for the leaderboard
   chat.innerHTML = '';
   startChat();
 }
@@ -1315,7 +1325,7 @@ async function startChat() {
   showTyping(); await delay(1000); hideTyping();
 
   addTeacherMsg(
-    'שלום ' + studentName + '! &#128075;<br>' +
+    'שלום ' + esc(studentName) + '! &#128075;<br>' +
     'ברוך הבא לשיעור על חג הפסח! &#127838;<br>' +
     'אני אשאל שאלות ואתה תענה. על כל תשובה נכונה תקבל נקודות!<br>' +
     'בסוף נראה מי צבר הכי הרבה בטבלת המובילים! &#127942;'
@@ -1485,7 +1495,7 @@ function renderMembersPopup() {
     div.className = 'member-item';
     div.innerHTML =
       '<span class="' + (isOnline ? 'member-dot-online' : 'member-dot-offline') + '">&#11044;</span>' +
-      '<span>' + e.name + '</span>' +
+      '<span>' + esc(e.name) + '</span>' +
       (e.id === sessionId ? '<span class="member-me">(אני)</span>' : '') +
       '<span class="member-score">' + e.score + ' נק׳</span>';
     list.appendChild(div);
@@ -1521,7 +1531,7 @@ function refreshTickerFromCache() {
 
     item.innerHTML =
       '<span class="live-ticker-medal">' + medal + '</span>' +
-      '<span class="live-ticker-name">' + onlineDot + e.name + '</span>' +
+      '<span class="live-ticker-name">' + onlineDot + esc(e.name) + '</span>' +
       '<span class="live-ticker-score">' + e.score + '</span>' +
       (changed ? '<span class="live-ticker-change">+' + diff + '</span>' : '');
 
@@ -1576,7 +1586,7 @@ async function renderLeaderboard() {
 
     div.innerHTML =
       '<div class="lb-rank">' + (i < 3 ? medals[i] : (i + 1)) + '</div>' +
-      '<div class="lb-name">' + statusDot + e.name + (e.id === sessionId ? ' <span class="me-tag">(זה אני!)</span>' : '') + '</div>' +
+      '<div class="lb-name">' + statusDot + esc(e.name) + (e.id === sessionId ? ' <span class="me-tag">(זה אני!)</span>' : '') + '</div>' +
       '<div class="lb-score-num">' + e.score + ' נק׳</div>';
     container.appendChild(div);
   });
@@ -1660,7 +1670,7 @@ function renderLeaderboardFromCache() {
 
     div.innerHTML =
       '<div class="lb-rank">' + (i < 3 ? medals[i] : (i + 1)) + '</div>' +
-      '<div class="lb-name">' + statusDot + e.name + (e.id === sessionId ? ' <span class="me-tag">(זה אני!)</span>' : '') + '</div>' +
+      '<div class="lb-name">' + statusDot + esc(e.name) + (e.id === sessionId ? ' <span class="me-tag">(זה אני!)</span>' : '') + '</div>' +
       '<div class="lb-score-num">' + e.score + ' נק׳</div>';
     container.appendChild(div);
   });
@@ -1691,7 +1701,7 @@ function addEmoji(btn) {
   const div = document.createElement('div');
   div.className = 'message sent clearfix';
   div.innerHTML =
-    '<span class="sender">&#128100; ' + studentName + '</span>' +
+    '<span class="sender">&#128100; ' + esc(studentName) + '</span>' +
     '<div class="msg-text" style="font-size:32px; text-align:center;">' + emoji + '</div>' +
     '<div class="msg-time">' + now() + ' <span class="read-ticks">&#10003;&#10003;</span></div>';
   chat.appendChild(div);
