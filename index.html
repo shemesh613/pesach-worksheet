@@ -459,6 +459,97 @@
 
   .score-popup.show { transform: translate(-50%, -50%) scale(1); }
 
+  /* === LIVE TICKER === */
+  .live-ticker {
+    background: #182229;
+    border-bottom: 1px solid #2a3942;
+    padding: 6px 12px;
+    display: none;
+    overflow: hidden;
+    position: sticky;
+    top: 56px;
+    z-index: 99;
+  }
+
+  .live-ticker.show { display: block; }
+
+  .live-ticker-label {
+    color: #00a884; font-size: 11px; font-weight: 600;
+    display: flex; align-items: center; gap: 6px; margin-bottom: 4px;
+  }
+
+  .live-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: #ff4444;
+    animation: livePulse 1.2s infinite;
+    display: inline-block;
+  }
+
+  @keyframes livePulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .live-ticker-scroll {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .live-ticker-scroll::-webkit-scrollbar { height: 0; }
+
+  .live-ticker-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #1f2c34;
+    border-radius: 20px;
+    padding: 4px 12px 4px 8px;
+    flex-shrink: 0;
+    transition: all 0.3s;
+    border: 1px solid #2a3942;
+  }
+
+  .live-ticker-item.me {
+    border-color: #00a884;
+    background: #0d3b30;
+  }
+
+  .live-ticker-item.first {
+    border-color: #ffd700;
+    background: #2a2000;
+  }
+
+  .live-ticker-medal { font-size: 16px; }
+
+  .live-ticker-name {
+    color: #e9edef;
+    font-size: 12px;
+    font-weight: 500;
+    max-width: 70px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .live-ticker-score {
+    color: #00a884;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .live-ticker-change {
+    color: #06cf9c;
+    font-size: 11px;
+    font-weight: 600;
+    animation: scoreUp 0.6s ease-out;
+  }
+
+  @keyframes scoreUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
   /* === STAGE SYSTEM MSG === */
   .system-msg b {
     color: #e9edef;
@@ -552,6 +643,12 @@
       <span>&#128222;</span>
       <span>&#8942;</span>
     </div>
+  </div>
+
+  <!-- LIVE TICKER -->
+  <div class="live-ticker" id="liveTicker">
+    <div class="live-ticker-label"><span class="live-dot"></span> שידור חי — טבלת ניקוד</div>
+    <div class="live-ticker-scroll" id="liveTickerScroll"></div>
   </div>
 
   <!-- CHAT -->
@@ -845,6 +942,7 @@ function enterChat() {
 
   updateLeaderboard();
   showFloatingBtn();
+  startLivePolling();
   startChat();
 }
 
@@ -1241,12 +1339,46 @@ async function updateLeaderboard() {
     });
 
     setSyncStatus('&#128504; מסונכרן', false);
+
+    // Refresh ticker immediately
+    refreshTickerFromCache();
   } catch (e) {
     console.log('Update LB error:', e);
     setSyncStatus('&#9888; שגיאת סנכרון', false);
   }
 
   syncing = false;
+}
+
+function refreshTickerFromCache() {
+  const entries = Object.entries(cachedLB)
+    .map(([id, d]) => ({ id, ...d }))
+    .sort((a, b) => b.score - a.score);
+
+  const scroll = document.getElementById('liveTickerScroll');
+  if (!scroll) return;
+  scroll.innerHTML = '';
+
+  const medals = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
+
+  entries.forEach((e, i) => {
+    const item = document.createElement('div');
+    let cls = 'live-ticker-item';
+    if (e.id === sessionId) cls += ' me';
+    if (i === 0) cls += ' first';
+    item.className = cls;
+
+    const medal = i < 3 ? medals[i] : (i + 1);
+    item.innerHTML =
+      '<span class="live-ticker-medal">' + medal + '</span>' +
+      '<span class="live-ticker-name">' + e.name + '</span>' +
+      '<span class="live-ticker-score">' + e.score + '</span>';
+
+    scroll.appendChild(item);
+  });
+
+  const floatingBadge = document.getElementById('floatingLbCount');
+  if (floatingBadge) floatingBadge.textContent = entries.length;
 }
 
 function setSyncStatus(text, active) {
@@ -1297,6 +1429,7 @@ async function renderLeaderboard() {
 function showFloatingBtn() {
   const btn = document.getElementById('floatingLbBtn');
   if (btn) btn.classList.add('show');
+  document.getElementById('liveTicker').classList.add('show');
 }
 
 async function openLB() {
@@ -1312,12 +1445,61 @@ async function refreshLB() {
   await renderLeaderboard();
 }
 
-// Auto-refresh leaderboard every 15 seconds if open
-setInterval(() => {
+// === LIVE TICKER ===
+let prevScores = {};
+
+async function updateLiveTicker() {
+  await fetchLeaderboard();
+
+  const entries = Object.entries(cachedLB)
+    .map(([id, d]) => ({ id, ...d }))
+    .sort((a, b) => b.score - a.score);
+
+  const scroll = document.getElementById('liveTickerScroll');
+  if (!scroll) return;
+  scroll.innerHTML = '';
+
+  const medals = ['\u{1F947}', '\u{1F948}', '\u{1F949}'];
+
+  entries.forEach((e, i) => {
+    const item = document.createElement('div');
+    let cls = 'live-ticker-item';
+    if (e.id === sessionId) cls += ' me';
+    if (i === 0) cls += ' first';
+    item.className = cls;
+
+    const medal = i < 3 ? medals[i] : (i + 1);
+    const changed = prevScores[e.id] !== undefined && e.score > prevScores[e.id];
+    const diff = changed ? e.score - prevScores[e.id] : 0;
+
+    item.innerHTML =
+      '<span class="live-ticker-medal">' + medal + '</span>' +
+      '<span class="live-ticker-name">' + e.name + '</span>' +
+      '<span class="live-ticker-score">' + e.score + '</span>' +
+      (changed ? '<span class="live-ticker-change">+' + diff + '</span>' : '');
+
+    scroll.appendChild(item);
+  });
+
+  // Save for diff next time
+  entries.forEach(e => { prevScores[e.id] = e.score; });
+
+  // Update floating badge
+  const floatingBadge = document.getElementById('floatingLbCount');
+  if (floatingBadge) floatingBadge.textContent = entries.length;
+
+  // Also update full leaderboard if open
   if (!document.getElementById('leaderboardOverlay').classList.contains('hidden')) {
     renderLeaderboard();
   }
-}, 15000);
+}
+
+// Auto-poll every 8 seconds
+let tickerInterval = null;
+function startLivePolling() {
+  updateLiveTicker();
+  tickerInterval = setInterval(updateLiveTicker, 8000);
+}
 
 // =============================================
 // EMOJIS — per student (in chat)
