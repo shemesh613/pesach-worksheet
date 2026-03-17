@@ -1311,11 +1311,7 @@ let prevScores = {};
 // Read the shared blob
 async function fetchBlob() {
   try {
-    const res = await fetch(BLOB_URL, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' },
-      cache: 'no-store'
-    });
+    const res = await fetch(BLOB_URL + '?_=' + Date.now());
     if (res.ok) {
       const data = await res.json();
       if (data && typeof data === 'object') allPlayers = data;
@@ -1339,7 +1335,7 @@ async function writeMyData() {
       // 3. Write
       await fetch(BLOB_URL, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify(allPlayers)
       });
 
